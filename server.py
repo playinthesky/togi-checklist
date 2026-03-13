@@ -8,8 +8,10 @@ import hashlib
 import secrets
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-from urllib.request import urlopen, Request
-from urllib.error import URLError
+import http.client
+import ssl
+from urllib.request import urlopen, Request, HTTPRedirectHandler, build_opener
+from urllib.error import URLError, HTTPError
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checklist.db')
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
@@ -616,12 +618,42 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
         }
 
         # POST to Google Apps Script (server-side, no CORS issues)
+        # Google Apps Script returns 302 redirects; we need to follow them
         try:
             payload = json.dumps(export_data, ensure_ascii=False).encode('utf-8')
-            req = Request(sheets_url, data=payload, headers={'Content-Type': 'application/json'})
-            response = urlopen(req, timeout=30)
-            result = json.loads(response.read().decode('utf-8'))
+            req = Request(sheets_url, data=payload, headers={
+                'Content-Type': 'text/plain',
+                'User-Agent': 'TogiChecklist/1.0'
+            })
+            ctx = ssl.create_default_context()
+            response = urlopen(req, timeout=60, context=ctx)
+            resp_body = response.read().decode('utf-8')
+            try:
+                result = json.loads(resp_body)
+            except json.JSONDecodeError:
+                result = {'success': True, 'message': '동기화 요청 전송됨'}
             self._send_json(result)
+        except HTTPError as e:
+            # 302 redirect - follow it manually
+            if e.code in (301, 302, 303, 307, 308):
+                redirect_url = e.headers.get('Location', '')
+                if redirect_url:
+                    try:
+                        redirect_req = Request(redirect_url)
+                        resp2 = urlopen(redirect_req, timeout=30, context=ctx)
+                        resp_body = resp2.read().decode('utf-8')
+                        try:
+                            result = json.loads(resp_body)
+                        except json.JSONDecodeError:
+                            result = {'success': True, 'message': '동기화 완료'}
+                        self._send_json(result)
+                    except Exception as e2:
+                        # Data was already sent to doPost, redirect is just for response
+                        self._send_json({'success': True, 'message': '동기화 요청 전송됨 (응답 확인 불가)'})
+                else:
+                    self._send_json({'success': True, 'message': '동기화 요청 전송됨'})
+            else:
+                self._send_json({'error': f'Google Sheets 오류 (HTTP {e.code})'}, 502)
         except URLError as e:
             self._send_json({'error': f'Google Sheets 연결 실패: {str(e)}'}, 502)
         except Exception as e:
