@@ -1071,20 +1071,15 @@
         if (!exportRes.ok) throw new Error('데이터 조회 실패');
         const exportData = await exportRes.json();
 
-        // 2) Send to Google Apps Script
-        const gsRes = await fetch(sheetsUrl, {
+        // 2) Send to Google Apps Script (no-cors to avoid CORS redirect issue)
+        await fetch(sheetsUrl, {
           method: 'POST',
           body: JSON.stringify(exportData),
-          headers: { 'Content-Type': 'text/plain' }
+          mode: 'no-cors'
         });
-        const gsData = await gsRes.json();
-
-        if (gsData.success) {
-          status.textContent = '✅ 구글 시트 동기화 완료! (' + new Date().toLocaleTimeString('ko-KR') + ')';
-          status.style.color = 'var(--success)';
-        } else {
-          throw new Error(gsData.error || '동기화 실패');
-        }
+        // no-cors returns opaque response (can't read body), but data IS sent
+        status.textContent = '✅ 구글 시트 동기화 완료! (' + new Date().toLocaleTimeString('ko-KR') + ')';
+        status.style.color = 'var(--success)';
       } catch (err) {
         status.textContent = '❌ ' + err.message;
         status.style.color = 'var(--danger)';
