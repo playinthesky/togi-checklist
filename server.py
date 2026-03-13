@@ -8,6 +8,8 @@ import hashlib
 import secrets
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+from urllib.request import urlopen, Request
+from urllib.error import URLError
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checklist.db')
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
@@ -200,6 +202,8 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             self._handle_update_contact(body)
         elif path == '/api/config':
             self._handle_save_config(body)
+        elif path == '/api/sync-sheets':
+            self._handle_sync_sheets(body)
         else:
             self._send_json({'error': 'not found'}, 404)
 
@@ -537,6 +541,91 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             'itemDetailRows': item_detail_rows,
             'staffNames': [s['name'] for s in staff_list],
         })
+
+    # --- Server-side Google Sheets sync (bypasses CORS) ---
+    def _handle_sync_sheets(self, body):
+        user = self._get_session_user()
+        if not user or user['role'] != 'admin':
+            self._send_json({'error': 'unauthorized'}, 401)
+            return
+
+        sheets_url = body.get('sheets_url', '').strip()
+        if not sheets_url:
+            self._send_json({'error': 'Google Apps Script URL이 필요합니다.'}, 400)
+            return
+
+        # Get export data
+        conn = get_db()
+        total_items = conn.execute('SELECT COUNT(*) FROM items').fetchone()[0]
+        staff_list = conn.execute("SELECT id, name, region, role, contact_name FROM staff WHERE role = 'staff' ORDER BY id").fetchall()
+        staff_count = len(staff_list)
+
+        staff_stats = []
+        for s in staff_list:
+            checked = conn.execute('SELECT COUNT(*) FROM checks WHERE staff_id = ? AND checked = 1', (s['id'],)).fetchone()[0]
+            pct = round((checked / total_items * 100)) if total_items > 0 else 0
+            d = dict(s)
+            d.update({'checked': checked, 'total': total_items, 'percent': pct})
+            staff_stats.append(d)
+
+        categories = conn.execute('SELECT * FROM categories ORDER BY sort_order').fetchall()
+        cat_stats = []
+        for cat in categories:
+            item_count = conn.execute('SELECT COUNT(*) FROM items WHERE category_id = ?', (cat['id'],)).fetchone()[0]
+            total_checks_cat = item_count * staff_count
+            done_checks_cat = conn.execute("""
+                SELECT COUNT(*) FROM checks ch JOIN items i ON ch.item_id = i.id
+                WHERE i.category_id = ? AND ch.checked = 1
+            """, (cat['id'],)).fetchone()[0]
+            pct = round((done_checks_cat / total_checks_cat * 100)) if total_checks_cat > 0 else 0
+            d = dict(cat)
+            d.update({'itemCount': item_count, 'totalChecks': total_checks_cat, 'doneChecks': done_checks_cat, 'percent': pct})
+            cat_stats.append(d)
+
+        total_checks = total_items * staff_count
+        done_checks = conn.execute('SELECT COUNT(*) FROM checks WHERE checked = 1').fetchone()[0]
+        overall_pct = round((done_checks / total_checks * 100)) if total_checks > 0 else 0
+
+        items_all = conn.execute("""
+            SELECT i.id, i.name, c.name as category_name, i.sort_order, c.sort_order as cat_sort
+            FROM items i JOIN categories c ON i.category_id = c.id
+            ORDER BY c.sort_order, i.sort_order
+        """).fetchall()
+
+        item_detail_rows = []
+        for item in items_all:
+            row = {'item_name': item['name'], 'category': item['category_name']}
+            for s in staff_list:
+                ch = conn.execute('SELECT checked FROM checks WHERE item_id = ? AND staff_id = ?', (item['id'], s['id'])).fetchone()
+                row[s['name']] = 1 if ch and ch['checked'] else 0
+            item_detail_rows.append(row)
+        conn.close()
+
+        export_data = {
+            'title': '청토지 보수교육 3/18 1차 대면 실습 준비 체크리스트',
+            'exportedAt': __import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'totalItems': total_items,
+            'staffCount': staff_count,
+            'overallPercent': overall_pct,
+            'doneChecks': done_checks,
+            'totalChecks': total_checks,
+            'staffStats': staff_stats,
+            'catStats': cat_stats,
+            'itemDetailRows': item_detail_rows,
+            'staffNames': [s['name'] for s in staff_list],
+        }
+
+        # POST to Google Apps Script (server-side, no CORS issues)
+        try:
+            payload = json.dumps(export_data, ensure_ascii=False).encode('utf-8')
+            req = Request(sheets_url, data=payload, headers={'Content-Type': 'application/json'})
+            response = urlopen(req, timeout=30)
+            result = json.loads(response.read().decode('utf-8'))
+            self._send_json(result)
+        except URLError as e:
+            self._send_json({'error': f'Google Sheets 연결 실패: {str(e)}'}, 502)
+        except Exception as e:
+            self._send_json({'error': f'동기화 실패: {str(e)}'}, 500)
 
     def log_message(self, format, *args):
         if '/api/' in str(args[0]):
