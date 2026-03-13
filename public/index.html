@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>청토지 보수교육 | 3/18 1차 대면 실습 준비 체크리스트</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #1a365d;
+      --primary-light: #2b6cb0;
+      --accent: #ed8936;
+      --success: #38a169;
+      --danger: #e53e3e;
+      --bg: #f7fafc;
+      --card: #ffffff;
+      --text: #2d3748;
+      --text-light: #718096;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* --- Login --- */
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+    }
+    .login-box {
+      background: var(--card);
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .login-logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-logo .icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .login-logo h1 { font-size: 1.3rem; color: var(--primary); }
+    .login-logo .subtitle { color: var(--text-light); font-size: 0.85rem; margin-top: 4px; }
+
+    /* Step 1: Region selection */
+    .region-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .region-btn {
+      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .region-btn:hover { border-color: var(--primary-light); background: #ebf4ff; }
+    .region-btn.selected { border-color: var(--primary); background: #ebf4ff; color: var(--primary); font-weight: 700; }
+    .region-btn .region-flag { font-size: 1.1rem; display: block; margin-bottom: 2px; }
+    .region-btn.admin-btn {
+      grid-column: 1 / -1;
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .region-btn.admin-btn:hover { background: var(--primary-light); }
+    .region-btn.admin-btn.selected { background: var(--primary-light); }
+
+    /* Step 2: PIN input */
+    .pin-section { display: none; margin-top: 20px; }
+    .pin-section.active { display: block; }
+    .pin-label {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--text-light);
+      margin-bottom: 12px;
+    }
+    .pin-label strong { color: var(--primary); }
+    .pin-dots {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .pin-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      transition: all 0.2s;
+    }
+    .pin-dot.filled { background: var(--primary); border-color: var(--primary); }
+    .pin-dot.error { background: var(--danger); border-color: var(--danger); }
+
+    .pin-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 260px;
+      margin: 0 auto;
+    }
+    .pin-key {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      cursor: pointer;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--text);
+      transition: all 0.15s;
+      text-align: center;
+      user-select: none;
+    }
+    .pin-key:hover { background: #edf2f7; }
+    .pin-key:active { background: #e2e8f0; transform: scale(0.96); }
+    .pin-key.fn { font-size: 0.85rem; color: var(--text-light); }
+
+    .login-error {
+      text-align: center;
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-top: 10px;
+      min-height: 20px;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      color: var(--text-light);
+      font-size: 0.85rem;
+      margin-top: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* --- App Shell --- */
+    .app { display: none; }
+    .app.active { display: block; }
+
+    .topbar {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .topbar .user-badge {
+      background: rgba(255,255,255,0.15);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+    }
+    .topbar .logout-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .topbar .logout-btn:hover { background: rgba(255,255,255,0.2); }
+
+    .content { max-width: 900px; margin: 0 auto; padding: 20px 16px; }
+
+    /* --- Checklist --- */
+    .category-section {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .category-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 18px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .category-progress {
+      background: rgba(255,255,255,0.2);
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+    }
+    .item-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+      gap: 12px;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-row:hover { background: #f7fafc; }
+    .item-row.checked { background: #f0fff4; }
+    .item-checkbox {
+      width: 24px; height: 24px;
+      border: 2px solid #cbd5e0;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    .item-checkbox.checked {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+    .item-info { flex: 1; min-width: 0; }
+    .item-name { font-weight: 500; font-size: 0.92rem; }
+    .item-row.checked .item-name { color: var(--text-light); text-decoration: line-through; }
+    .item-meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 3px;
+      font-size: 0.78rem;
+      color: var(--text-light);
+      flex-wrap: wrap;
+    }
+    .item-time { font-size: 0.72rem; color: var(--text-light); white-space: nowrap; flex-shrink: 0; }
+
+    .item-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      font-size: 0.78rem;
+    }
+    .item-link a {
+      color: var(--primary-light);
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .item-link a:hover { text-decoration: underline; }
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 2px 5px;
+      font-size: 0.72rem;
+      color: var(--text-light);
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: #edf2f7; border-color: var(--primary-light); color: var(--primary); }
+    .copy-btn.copied { background: #c6f6d5; border-color: var(--success); color: var(--success); }
+
+    /* --- Dashboard --- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; }
+
+    .section-title { font-size: 1.05rem; font-weight: 600; margin: 20px 0 10px; color: var(--primary); }
+
+    .staff-progress-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .staff-progress-row {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .staff-progress-name { width: 80px; font-weight: 500; font-size: 0.88rem; flex-shrink: 0; }
+    .progress-bar-wrap {
+      flex: 1;
+      height: 22px;
+      background: #edf2f7;
+      border-radius: 11px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 11px;
+      transition: width 0.5s ease;
+      background: linear-gradient(90deg, var(--primary-light), var(--success));
+    }
+    .progress-bar-text {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .cat-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .cat-stat-card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .cat-stat-name { font-weight: 600; font-size: 0.88rem; margin-bottom: 6px; }
+    .cat-stat-bar { height: 8px; background: #edf2f7; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+    .cat-stat-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.5s ease; }
+    .cat-stat-detail { font-size: 0.78rem; color: var(--text-light); }
+
+    .item-detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      margin-bottom: 20px;
+    }
+    .item-detail-table th {
+      background: var(--primary);
+      color: #fff;
+      padding: 9px 12px;
+      text-align: left;
+      font-size: 0.82rem;
+    }
+    .item-detail-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+    .item-detail-table tr:last-child td { border-bottom: none; }
+    .check-count { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; }
+    .check-count.full { background: #c6f6d5; color: #22543d; }
+    .check-count.partial { background: #fefcbf; color: #744210; }
+    .check-count.none { background: #fed7d7; color: #742a2a; }
+
+    .activity-list {
+      background: var(--card);
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .activity-item {
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .activity-time { color: var(--text-light); font-size: 0.72rem; white-space: nowrap; margin-left: auto; }
+
+    /* PIN management in dashboard */
+    .pin-mgmt { margin-bottom: 20px; }
+    .pin-mgmt-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .pin-mgmt-table th { background: var(--primary); color: #fff; padding: 9px 12px; text-align: left; font-size: 0.82rem; }
+    .pin-mgmt-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+    .pin-mgmt-table tr:last-child td { border-bottom: none; }
+    .pin-reset-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--primary-light);
+      border-radius: 6px;
+      background: #ebf4ff;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    .pin-reset-btn:hover { background: var(--primary); color: #fff; }
+
+    /* Staff settings section */
+    .staff-settings {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+      margin-top: 24px;
+      padding: 18px;
+    }
+    .staff-settings h3 { font-size: 0.95rem; color: var(--primary); margin-bottom: 12px; }
+    .staff-settings + .staff-settings { margin-top: 12px; }
+    .pin-change-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .pin-change-form input {
+      width: 80px;
+      padding: 8px 10px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      text-align: center;
+      letter-spacing: 4px;
+    }
+    .pin-change-form input:focus { outline: none; border-color: var(--primary-light); }
+    .pin-change-form label { font-size: 0.82rem; color: var(--text-light); }
+    .pin-change-btn {
+      padding: 8px 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .pin-change-btn:hover { background: var(--primary-light); }
+    .pin-change-msg { font-size: 0.82rem; margin-top: 8px; }
+    .contact-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .contact-form input {
+      flex: 1;
+      min-width: 120px;
+      padding: 8px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .contact-form input:focus { outline: none; border-color: var(--primary-light); }
+    .contact-save-btn {
+      padding: 8px 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .contact-save-btn:hover { background: var(--primary-light); }
+    .contact-msg { font-size: 0.82rem; margin-top: 8px; }
+
+    /* Google Sheets sync section */
+    .sheets-sync {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .sheets-sync h3 { font-size: 0.95rem; color: #0f9d58; margin-bottom: 10px; }
+    .sheets-url-form { display: flex; gap: 8px; margin-bottom: 8px; }
+    .sheets-url-form input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+    .sheets-url-form input:focus { outline: none; border-color: #0f9d58; }
+    .sheets-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .sheets-btn.save { background: #e8f5e9; color: #2e7d32; }
+    .sheets-btn.save:hover { background: #c8e6c9; }
+    .sheets-btn.sync { background: #0f9d58; color: #fff; }
+    .sheets-btn.sync:hover { background: #0b8043; }
+    .sheets-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .sheets-status { font-size: 0.78rem; margin-top: 6px; min-height: 18px; }
+    .sheets-help { font-size: 0.72rem; color: var(--text-light); margin-top: 6px; line-height: 1.5; }
+
+    /* Kakao inquiry button */
+    .inquiry-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fee500;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      z-index: 200;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      cursor: pointer;
+      text-decoration: none;
+      color: #3c1e1e;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .inquiry-bar:hover { background: #fdd835; }
+    .inquiry-bar .kakao-icon { font-size: 1.2rem; }
+
+    @media (max-width: 600px) {
+      .region-grid { grid-template-columns: repeat(2, 1fr); }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .content { padding: 14px 10px; }
+      .topbar { padding: 10px 14px; }
+      .topbar h1 { font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login -->
+  <div id="loginScreen" class="login-container">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="icon">&#x1F4CB;</div>
+        <h1>청토지 보수교육</h1>
+        <p class="subtitle">3/18 1차 대면 실습 준비 체크리스트</p>
+      </div>
+
+      <!-- Step 1: Select region -->
+      <div id="step1">
+        <div class="region-grid" id="regionGrid"></div>
+      </div>
+
+      <!-- Step 2: Enter PIN -->
+      <div id="step2" class="pin-section">
+        <div class="pin-label"><strong id="selectedName"></strong> 로그인</div>
+        <div class="pin-dots">
+          <div class="pin-dot" id="dot0"></div>
+          <div class="pin-dot" id="dot1"></div>
+          <div class="pin-dot" id="dot2"></div>
+          <div class="pin-dot" id="dot3"></div>
+        </div>
+        <div class="pin-pad">
+          <div class="pin-key" onclick="pinInput('1')">1</div>
+          <div class="pin-key" onclick="pinInput('2')">2</div>
+          <div class="pin-key" onclick="pinInput('3')">3</div>
+          <div class="pin-key" onclick="pinInput('4')">4</div>
+          <div class="pin-key" onclick="pinInput('5')">5</div>
+          <div class="pin-key" onclick="pinInput('6')">6</div>
+          <div class="pin-key" onclick="pinInput('7')">7</div>
+          <div class="pin-key" onclick="pinInput('8')">8</div>
+          <div class="pin-key" onclick="pinInput('9')">9</div>
+          <div class="pin-key fn" onclick="pinClear()">초기화</div>
+          <div class="pin-key" onclick="pinInput('0')">0</div>
+          <div class="pin-key fn" onclick="pinDelete()">&#x232B;</div>
+        </div>
+        <div class="login-error" id="loginError"></div>
+        <span class="back-link" onclick="backToStep1()">&#x2190; 다른 지회 선택</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="app">
+    <div class="topbar">
+      <h1 id="appTitle">청토지 보수교육 준비 체크리스트</h1>
+      <div class="topbar-right">
+        <span class="user-badge" id="userBadge"></span>
+        <button class="logout-btn" onclick="logout()">로그아웃</button>
+      </div>
+    </div>
+    <div class="content" id="mainContent"></div>
+  </div>
+
+  <!-- 카카오톡 문의 -->
+  <a id="inquiryBar" class="inquiry-bar" href="https://pf.kakao.com/_fKF" target="_blank" rel="noopener" style="display:none;">
+    <span class="kakao-icon">&#x1F4AC;</span>
+    문의하기 — fKF 카카오톡 채널
+  </a>
+
+  <script>
+    let authToken = null;
+    let currentUser = null;
+    let selectedStaff = null;
+    let pinBuffer = '';
+    let staffList = [];
+    let autoRefreshTimer = null;
+
+    function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      return fetch(path, { ...opts, headers });
+    }
+
+    // --- Init ---
+    async function init() {
+      const res = await fetch('/api/staff/list');
+      staffList = await res.json();
+
+      const grid = document.getElementById('regionGrid');
+      grid.innerHTML = '';
+
+      // Admin button
+      const admin = staffList.find(s => s.role === 'admin');
+      if (admin) {
+        const btn = document.createElement('button');
+        btn.className = 'region-btn admin-btn';
+        btn.innerHTML = '&#x1F4CA; 관리자 대시보드';
+        btn.onclick = () => selectStaff(admin);
+        grid.appendChild(btn);
+      }
+
+      // Regional staff
+      const regionEmojis = { '인천': '&#x1F30A;', '경기': '&#x1F3D4;', '경북': '&#x1F3EF;', '전북': '&#x1F33E;', '광주': '&#x2600;', '부산': '&#x26F5;', '제주': '&#x1F30B;', '서울': '&#x1F3DB;' };
+      staffList.filter(s => s.role === 'staff').forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'region-btn';
+        btn.id = `region-btn-${s.id}`;
+        btn.innerHTML = `<span class="region-flag">${regionEmojis[s.region] || '&#x1F4CD;'}</span>${s.name}`;
+        btn.onclick = () => selectStaff(s);
+        grid.appendChild(btn);
+      });
+
+      // Restore session
+      const saved = sessionStorage.getItem('checklist_token');
+      if (saved) {
+        authToken = saved;
+        const meRes = await api('/api/me');
+        if (meRes.ok) {
+          currentUser = await meRes.json();
+          showApp();
+        } else {
+          sessionStorage.removeItem('checklist_token');
+          authToken = null;
+        }
+      }
+    }
+
+    // --- Login Flow ---
+    function selectStaff(staff) {
+      selectedStaff = staff;
+      pinBuffer = '';
+      document.getElementById('selectedName').textContent = staff.name;
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('step1').style.display = 'none';
+      document.getElementById('step2').classList.add('active');
+      updateDots();
+    }
+
+    function backToStep1() {
+      selectedStaff = null;
+      pinBuffer = '';
+      document.getElementById('step1').style.display = 'block';
+      document.getElementById('step2').classList.remove('active');
+    }
+
+    function pinInput(digit) {
+      if (pinBuffer.length >= 4) return;
+      pinBuffer += digit;
+      updateDots();
+      if (pinBuffer.length === 4) {
+        attemptLogin();
+      }
+    }
+
+    function pinDelete() {
+      pinBuffer = pinBuffer.slice(0, -1);
+      updateDots();
+      document.getElementById('loginError').textContent = '';
+    }
+
+    function pinClear() {
+      pinBuffer = '';
+      updateDots();
+      document.getElementById('loginError').textContent = '';
+    }
+
+    function updateDots() {
+      for (let i = 0; i < 4; i++) {
+        const dot = document.getElementById(`dot${i}`);
+        dot.className = 'pin-dot' + (i < pinBuffer.length ? ' filled' : '');
+      }
+    }
+
+    async function attemptLogin() {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_id: selectedStaff.id, pin: pinBuffer })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Shake dots red
+        for (let i = 0; i < 4; i++) {
+          document.getElementById(`dot${i}`).className = 'pin-dot error';
+        }
+        document.getElementById('loginError').textContent = data.error || '로그인 실패';
+        setTimeout(() => {
+          pinBuffer = '';
+          updateDots();
+        }, 600);
+        return;
+      }
+
+      authToken = data.token;
+      currentUser = data.user;
+      sessionStorage.setItem('checklist_token', authToken);
+      showApp();
+    }
+
+    function showApp() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('app').classList.add('active');
+      document.getElementById('userBadge').textContent = currentUser.name;
+      document.getElementById('inquiryBar').style.display = 'flex';
+      document.getElementById('mainContent').style.paddingBottom = '60px';
+
+      if (currentUser.role === 'admin') {
+        document.getElementById('appTitle').textContent = '관리자 대시보드';
+        loadDashboard();
+        autoRefreshTimer = setInterval(loadDashboard, 10000);
+      } else {
+        document.getElementById('appTitle').textContent = '준비 체크리스트';
+        loadChecklist();
+      }
+    }
+
+    async function logout() {
+      await api('/api/logout', { method: 'POST' });
+      authToken = null;
+      currentUser = null;
+      sessionStorage.removeItem('checklist_token');
+      if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('app').classList.remove('active');
+      document.getElementById('mainContent').innerHTML = '';
+      document.getElementById('inquiryBar').style.display = 'none';
+      backToStep1();
+    }
+
+    // --- Checklist ---
+    async function loadChecklist() {
+      const res = await api('/api/items');
+      if (!res.ok) return;
+      const categories = await res.json();
+
+      document.getElementById('mainContent').innerHTML = categories.map(cat => {
+        const checkedCount = cat.items.filter(i => i.checked).length;
+        return `
+          <div class="category-section">
+            <div class="category-header">
+              <span>${cat.name}</span>
+              <span class="category-progress">${checkedCount}/${cat.items.length}</span>
+            </div>
+            ${cat.items.map(item => `
+              <div class="item-row ${item.checked ? 'checked' : ''}">
+                <div class="item-checkbox ${item.checked ? 'checked' : ''}"
+                     onclick="toggleCheck(${item.id}, ${!item.checked})">
+                  ${item.checked ? '&#x2713;' : ''}
+                </div>
+                <div class="item-info">
+                  <div class="item-name">${item.name}</div>
+                  <div class="item-meta">
+                    <span>&#x1F4E6; ${item.quantity}</span>
+                    <span>&#x1F4DD; ${item.usage_detail}</span>
+                  </div>
+                  ${item.note && item.note.startsWith('http') ? `
+                    <div class="item-link">
+                      &#x1F517; <a href="${item.note}" target="_blank" rel="noopener">${item.note}</a>
+                      <button class="copy-btn" onclick="copyLink(this, '${item.note}')" title="링크 복사">&#x1F4CB; 복사</button>
+                    </div>
+                  ` : ''}
+                </div>
+                ${item.checked_at ? `<span class="item-time">${item.checked_at}</span>` : ''}
+              </div>
+            `).join('')}
+          </div>`;
+      }).join('');
+
+      // Contact name section
+      const savedContact = currentUser.contact_name || '';
+      document.getElementById('mainContent').innerHTML += `
+        <div class="staff-settings">
+          <h3>&#x1F464; 지회 담당자</h3>
+          <div class="contact-form">
+            <input type="text" id="contactName" placeholder="담당자 이름을 입력하세요" value="${savedContact}">
+            <button class="contact-save-btn" onclick="saveContact()">저장</button>
+          </div>
+          <div class="contact-msg" id="contactMsg"></div>
+        </div>
+      `;
+
+      // PIN change section for staff
+      document.getElementById('mainContent').innerHTML += `
+        <div class="staff-settings">
+          <h3>&#x1F510; 지회 PIN 변경</h3>
+          <div class="pin-change-form">
+            <div>
+              <label>현재 PIN</label><br>
+              <input type="password" id="currentPin" maxlength="4" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            <div>
+              <label>새 PIN</label><br>
+              <input type="password" id="newPin" maxlength="4" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            <div>
+              <label>새 PIN 확인</label><br>
+              <input type="password" id="confirmPin" maxlength="4" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            <button class="pin-change-btn" onclick="changeMyPin()">변경</button>
+          </div>
+          <div class="pin-change-msg" id="pinChangeMsg"></div>
+        </div>
+      `;
+    }
+
+    async function changeMyPin() {
+      const current = document.getElementById('currentPin').value;
+      const newPin = document.getElementById('newPin').value;
+      const confirm = document.getElementById('confirmPin').value;
+      const msgEl = document.getElementById('pinChangeMsg');
+
+      if (!/^\d{4}$/.test(newPin)) {
+        msgEl.textContent = 'PIN은 4자리 숫자여야 합니다.';
+        msgEl.style.color = 'var(--danger)';
+        return;
+      }
+      if (newPin !== confirm) {
+        msgEl.textContent = '새 PIN이 일치하지 않습니다.';
+        msgEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      const res = await api('/api/staff/change-pin', {
+        method: 'POST',
+        body: JSON.stringify({ current_pin: current, new_pin: newPin })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        msgEl.textContent = data.error || 'PIN 변경 실패';
+        msgEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      msgEl.textContent = 'PIN이 변경되었습니다!';
+      msgEl.style.color = 'var(--success)';
+      document.getElementById('currentPin').value = '';
+      document.getElementById('newPin').value = '';
+      document.getElementById('confirmPin').value = '';
+    }
+
+    async function saveContact() {
+      const name = document.getElementById('contactName').value.trim();
+      const msgEl = document.getElementById('contactMsg');
+      const res = await api('/api/staff/update-contact', {
+        method: 'POST',
+        body: JSON.stringify({ contact_name: name })
+      });
+      if (res.ok) {
+        currentUser.contact_name = name;
+        msgEl.textContent = '담당자 이름이 저장되었습니다!';
+        msgEl.style.color = 'var(--success)';
+      } else {
+        msgEl.textContent = '저장 실패';
+        msgEl.style.color = 'var(--danger)';
+      }
+    }
+
+    function copyLink(btn, url) {
+      navigator.clipboard.writeText(url).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '&#x2705; 복사됨';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '&#x1F4CB; 복사';
+        }, 2000);
+      });
+    }
+
+    async function toggleCheck(itemId, checked) {
+      await api('/api/check', {
+        method: 'POST',
+        body: JSON.stringify({ item_id: itemId, checked })
+      });
+      loadChecklist();
+    }
+
+    // --- Dashboard ---
+    async function loadDashboard() {
+      const res = await api('/api/dashboard');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      document.getElementById('mainContent').innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">${data.overallPercent}%</div>
+            <div class="stat-label">전체 진행률</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.doneChecks}/${data.totalChecks}</div>
+            <div class="stat-label">완료 항목 (전체)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.totalItems}</div>
+            <div class="stat-label">체크리스트 항목 수</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.staffCount}</div>
+            <div class="stat-label">참여 지회 수</div>
+          </div>
+        </div>
+
+        <div class="section-title">지회별 진행 현황</div>
+        <div class="staff-progress-list">
+          ${data.staffStats.map(s => `
+            <div class="staff-progress-row">
+              <span class="staff-progress-name">${s.name}${s.contact_name ? '<br><small style="color:var(--text-light);font-weight:400">' + s.contact_name + '</small>' : ''}</span>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width: ${s.percent}%"></div>
+                <span class="progress-bar-text">${s.checked}/${s.total} (${s.percent}%)</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="section-title">카테고리별 현황</div>
+        <div class="cat-stats-grid">
+          ${data.catStats.map(c => `
+            <div class="cat-stat-card">
+              <div class="cat-stat-name">${c.name}</div>
+              <div class="cat-stat-bar">
+                <div class="cat-stat-bar-fill" style="width: ${c.percent}%"></div>
+              </div>
+              <div class="cat-stat-detail">${c.doneChecks}/${c.totalChecks} 완료 (${c.percent}%)</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="section-title">품목별 확인 현황</div>
+        <table class="item-detail-table">
+          <thead><tr><th>카테고리</th><th>품목</th><th>확인 현황</th></tr></thead>
+          <tbody>
+            ${data.itemDetails.map(i => {
+              const cls = i.checked_count === data.staffCount ? 'full' : i.checked_count > 0 ? 'partial' : 'none';
+              return `<tr><td>${i.category_name}</td><td>${i.name}</td>
+                <td><span class="check-count ${cls}">${i.checked_count}/${data.staffCount}개 지회 확인</span></td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="section-title">PIN 관리</div>
+        <div class="pin-mgmt">
+          <table class="pin-mgmt-table">
+            <thead><tr><th>지회</th><th>PIN 초기화</th></tr></thead>
+            <tbody>
+              ${data.staffStats.map(s => `
+                <tr>
+                  <td>${s.name}</td>
+                  <td>
+                    <input type="text" id="pin-input-${s.id}" maxlength="4" placeholder="새 PIN"
+                      style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.82rem;text-align:center;">
+                    <button class="pin-reset-btn" onclick="resetPin(${s.id})">변경</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-title">최근 활동</div>
+        <div class="activity-list">
+          ${data.recentActivity.length === 0
+            ? '<div class="activity-item" style="color:var(--text-light)">아직 활동 기록이 없습니다.</div>'
+            : data.recentActivity.map(a => `
+              <div class="activity-item">
+                <div class="activity-dot" style="background: ${a.checked ? 'var(--success)' : 'var(--danger)'}"></div>
+                <span><strong>${a.staff_name}</strong> &mdash; ${a.item_name} ${a.checked ? '확인' : '취소'}</span>
+                <span class="activity-time">${a.checked_at}</span>
+              </div>
+            `).join('')}
+        </div>
+
+        <div class="section-title">&#x1F4CA; 구글 시트 연동</div>
+        <div class="sheets-sync">
+          <h3>&#x1F4D7; Google Sheets 자동 동기화</h3>
+          <div class="sheets-url-form">
+            <input type="text" id="sheetsUrl" placeholder="Apps Script 웹 앱 URL 붙여넣기">
+            <button class="sheets-btn save" onclick="saveSheetsUrl()">저장</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="sheets-btn sync" id="syncBtn" onclick="syncToSheets()" disabled>&#x1F504; 구글 시트 동기화</button>
+            <span class="sheets-status" id="sheetsStatus"></span>
+          </div>
+          <div class="sheets-help">
+            설정 방법: 구글 시트 생성 → 확장 프로그램 → Apps Script → 제공된 코드 붙여넣기 → 배포(웹 앱) → URL 복사하여 위에 붙여넣기
+          </div>
+        </div>
+      `;
+
+      // Load saved sheets URL
+      loadSheetsConfig();
+    }
+
+    async function loadSheetsConfig() {
+      const res = await api('/api/config');
+      if (!res.ok) return;
+      const config = await res.json();
+      const urlInput = document.getElementById('sheetsUrl');
+      const syncBtn = document.getElementById('syncBtn');
+      if (urlInput && config.sheets_url) {
+        urlInput.value = config.sheets_url;
+        syncBtn.disabled = false;
+      }
+    }
+
+    async function saveSheetsUrl() {
+      const url = document.getElementById('sheetsUrl').value.trim();
+      if (!url) return;
+      const res = await api('/api/config', {
+        method: 'POST',
+        body: JSON.stringify({ sheets_url: url })
+      });
+      if (res.ok) {
+        document.getElementById('syncBtn').disabled = false;
+        const status = document.getElementById('sheetsStatus');
+        status.textContent = '✅ URL 저장됨';
+        status.style.color = 'var(--success)';
+      }
+    }
+
+    async function syncToSheets() {
+      const syncBtn = document.getElementById('syncBtn');
+      const status = document.getElementById('sheetsStatus');
+      const sheetsUrl = document.getElementById('sheetsUrl').value.trim();
+      if (!sheetsUrl) return;
+
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ 동기화 중...';
+      status.textContent = '';
+
+      try {
+        // 1) Get export data from our server
+        const exportRes = await api('/api/export');
+        if (!exportRes.ok) throw new Error('데이터 조회 실패');
+        const exportData = await exportRes.json();
+
+        // 2) Send to Google Apps Script
+        const gsRes = await fetch(sheetsUrl, {
+          method: 'POST',
+          body: JSON.stringify(exportData),
+          headers: { 'Content-Type': 'text/plain' }
+        });
+        const gsData = await gsRes.json();
+
+        if (gsData.success) {
+          status.textContent = '✅ 구글 시트 동기화 완료! (' + new Date().toLocaleTimeString('ko-KR') + ')';
+          status.style.color = 'var(--success)';
+        } else {
+          throw new Error(gsData.error || '동기화 실패');
+        }
+      } catch (err) {
+        status.textContent = '❌ ' + err.message;
+        status.style.color = 'var(--danger)';
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = '🔄 구글 시트 동기화';
+      }
+    }
+
+    async function resetPin(staffId) {
+      const input = document.getElementById(`pin-input-${staffId}`);
+      const newPin = input.value.trim();
+      if (!/^\d{4}$/.test(newPin)) {
+        alert('PIN은 4자리 숫자여야 합니다.');
+        return;
+      }
+      const res = await api('/api/staff/reset-pin', {
+        method: 'POST',
+        body: JSON.stringify({ staff_id: staffId, new_pin: newPin })
+      });
+      if (res.ok) {
+        input.value = '';
+        alert('PIN이 변경되었습니다.');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
