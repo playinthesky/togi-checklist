@@ -305,7 +305,12 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
         path = parsed.path
 
         if path == '/health':
-            self._send_json({'status': 'ok', 'db': 'postgresql' if USE_PG else 'sqlite'})
+            self._send_json({
+                'status': 'ok',
+                'db': 'postgresql' if USE_PG else 'sqlite',
+                'has_pg': HAS_PG,
+                'has_db_url': bool(DATABASE_URL),
+            })
         elif path == '/api/staff/list':
             self._handle_staff_public_list()
         elif path == '/api/me':
