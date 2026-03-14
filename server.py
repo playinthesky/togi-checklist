@@ -1,85 +1,211 @@
 #!/usr/bin/env python3
-"""청토지 보수교육 준비 체크리스트 서버"""
+"""청토지 보수교육 준비 체크리스트 서버 (PostgreSQL + SQLite fallback)"""
 
 import json
 import sqlite3
 import os
 import hashlib
 import secrets
+import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import http.client
 import ssl
-from urllib.request import urlopen, Request, HTTPRedirectHandler, build_opener
+from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
+# PostgreSQL support (optional, for Render deployment)
+try:
+    import psycopg2
+    import psycopg2.extras
+    HAS_PG = True
+except ImportError:
+    HAS_PG = False
+
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checklist.db')
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 
 # Simple session store (in-memory)
 sessions = {}
 
+USE_PG = bool(DATABASE_URL and HAS_PG)
+
+
+class DictRow(dict):
+    """Make dict work like sqlite3.Row with index access."""
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+    def keys(self):
+        return super().keys()
+
+
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+    if USE_PG:
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        return conn
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
+
+def db_execute(conn, sql, params=None):
+    """Execute SQL, adapting syntax for PostgreSQL vs SQLite."""
+    if USE_PG:
+        # Convert ? placeholders to %s for PostgreSQL
+        sql = sql.replace('?', '%s')
+        # Convert SQLite datetime function to PostgreSQL
+        sql = sql.replace("datetime('now', 'localtime')", "NOW()")
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params or ())
+        return cur
+    else:
+        return conn.execute(sql, params or ())
+
+
+def db_fetchone(cur):
+    """Fetch one row as dict."""
+    if USE_PG:
+        row = cur.fetchone()
+        return DictRow(row) if row else None
+    else:
+        row = cur.fetchone()
+        return row
+
+
+def db_fetchall(cur):
+    """Fetch all rows as dicts."""
+    if USE_PG:
+        rows = cur.fetchall()
+        return [DictRow(r) for r in rows]
+    else:
+        return cur.fetchall()
+
+
+def db_commit(conn):
+    conn.commit()
+
+
+def db_close(conn):
+    conn.close()
+
 
 def hash_pin(pin):
     return hashlib.sha256(pin.encode()).hexdigest()
 
+
 def init_db():
     conn = get_db()
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS staff (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            region TEXT DEFAULT '',
-            role TEXT DEFAULT 'staff',
-            pin_hash TEXT NOT NULL,
-            contact_name TEXT DEFAULT ''
-        );
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            sort_order INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            quantity TEXT,
-            usage_detail TEXT,
-            note TEXT DEFAULT '',
-            sort_order INTEGER DEFAULT 0,
-            FOREIGN KEY (category_id) REFERENCES categories(id)
-        );
-        CREATE TABLE IF NOT EXISTS checks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            item_id INTEGER NOT NULL,
-            staff_id INTEGER NOT NULL,
-            checked INTEGER DEFAULT 0,
-            checked_at TEXT,
-            UNIQUE(item_id, staff_id),
-            FOREIGN KEY (item_id) REFERENCES items(id),
-            FOREIGN KEY (staff_id) REFERENCES staff(id)
-        );
-        CREATE TABLE IF NOT EXISTS config (
-            key TEXT PRIMARY KEY,
-            value TEXT DEFAULT ''
-        );
-    """)
-    conn.commit()
 
-    count = conn.execute('SELECT COUNT(*) FROM staff').fetchone()[0]
+    if USE_PG:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS staff (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                region TEXT DEFAULT '',
+                role TEXT DEFAULT 'staff',
+                pin_hash TEXT NOT NULL,
+                contact_name TEXT DEFAULT ''
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS items (
+                id SERIAL PRIMARY KEY,
+                category_id INTEGER NOT NULL REFERENCES categories(id),
+                name TEXT NOT NULL,
+                quantity TEXT,
+                usage_detail TEXT,
+                note TEXT DEFAULT '',
+                sort_order INTEGER DEFAULT 0
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS checks (
+                id SERIAL PRIMARY KEY,
+                item_id INTEGER NOT NULL REFERENCES items(id),
+                staff_id INTEGER NOT NULL REFERENCES staff(id),
+                checked INTEGER DEFAULT 0,
+                checked_at TEXT,
+                UNIQUE(item_id, staff_id)
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT DEFAULT ''
+            );
+        """)
+        conn.commit()
+    else:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS staff (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                region TEXT DEFAULT '',
+                role TEXT DEFAULT 'staff',
+                pin_hash TEXT NOT NULL,
+                contact_name TEXT DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                quantity TEXT,
+                usage_detail TEXT,
+                note TEXT DEFAULT '',
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (category_id) REFERENCES categories(id)
+            );
+            CREATE TABLE IF NOT EXISTS checks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                checked INTEGER DEFAULT 0,
+                checked_at TEXT,
+                UNIQUE(item_id, staff_id),
+                FOREIGN KEY (item_id) REFERENCES items(id),
+                FOREIGN KEY (staff_id) REFERENCES staff(id)
+            );
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT DEFAULT ''
+            );
+        """)
+        conn.commit()
+
+    # Seed data if empty
+    cur = db_execute(conn, 'SELECT COUNT(*) as cnt FROM staff')
+    row = db_fetchone(cur)
+    count = row['cnt'] if USE_PG else row[0]
+
     if count == 0:
+        print('  [DB] 초기 데이터 시딩 중...')
         # Admin: default PIN 0000
-        conn.execute(
+        db_execute(conn,
             "INSERT INTO staff (id, name, region, role, pin_hash) VALUES (0, '관리자', '본부', 'admin', ?)",
             (hash_pin('0000'),)
         )
 
-        # 8 regional staff - default PIN: 0014 (fKF 창립기념일)
+        # 8 regional staff - default PIN: 0014
         regions = [
             (1, '인천지회', '인천', '0014'),
             (2, '경기지회', '경기', '0014'),
@@ -91,7 +217,7 @@ def init_db():
             (8, '서울지회', '서울', '0014'),
         ]
         for sid, name, region, pin in regions:
-            conn.execute(
+            db_execute(conn,
                 "INSERT INTO staff (id, name, region, role, pin_hash) VALUES (?, ?, ?, 'staff', ?)",
                 (sid, name, region, hash_pin(pin))
             )
@@ -124,21 +250,33 @@ def init_db():
         ]
 
         for cat_name, cat_order, items in seed_items:
-            cur = conn.execute(
-                "INSERT INTO categories (name, sort_order) VALUES (?, ?)",
-                (cat_name, cat_order)
-            )
-            cat_id = cur.lastrowid
+            if USE_PG:
+                cur = db_execute(conn,
+                    "INSERT INTO categories (name, sort_order) VALUES (?, ?) RETURNING id",
+                    (cat_name, cat_order)
+                )
+                cat_id = db_fetchone(cur)['id']
+            else:
+                cur = db_execute(conn,
+                    "INSERT INTO categories (name, sort_order) VALUES (?, ?)",
+                    (cat_name, cat_order)
+                )
+                cat_id = cur.lastrowid
+
             for item_data in items:
                 item_name, qty, usage, sort = item_data[:4]
                 note = item_data[4] if len(item_data) > 4 else ''
-                conn.execute(
+                db_execute(conn,
                     "INSERT INTO items (category_id, name, quantity, usage_detail, sort_order, note) VALUES (?, ?, ?, ?, ?, ?)",
                     (cat_id, item_name, qty, usage, sort, note)
                 )
 
-        conn.commit()
-    conn.close()
+        db_commit(conn)
+        print('  [DB] 초기 데이터 시딩 완료!')
+    else:
+        print(f'  [DB] 기존 데이터 발견 (staff: {count}명)')
+
+    db_close(conn)
 
 
 class ChecklistHandler(SimpleHTTPRequestHandler):
@@ -156,7 +294,6 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
     def _get_session_user(self):
-        """Extract session token from Authorization header and return user or None."""
         auth = self.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
             token = auth[7:]
@@ -166,10 +303,9 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
-        params = parse_qs(parsed.query)
 
         if path == '/health':
-            self._send_json({'status': 'ok'})
+            self._send_json({'status': 'ok', 'db': 'postgresql' if USE_PG else 'sqlite'})
         elif path == '/api/staff/list':
             self._handle_staff_public_list()
         elif path == '/api/me':
@@ -211,10 +347,9 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
 
     # --- Auth ---
     def _handle_staff_public_list(self):
-        """Return staff list (names only, no secrets) for login screen."""
         conn = get_db()
-        rows = conn.execute('SELECT id, name, region, role FROM staff ORDER BY id').fetchall()
-        conn.close()
+        rows = db_fetchall(db_execute(conn, 'SELECT id, name, region, role FROM staff ORDER BY id'))
+        db_close(conn)
         self._send_json([dict(r) for r in rows])
 
     def _handle_login(self, body):
@@ -222,16 +357,20 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
         pin = body.get('pin', '')
 
         conn = get_db()
-        user = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
-        conn.close()
+        user = db_fetchone(db_execute(conn, 'SELECT * FROM staff WHERE id = ?', (staff_id,)))
+        db_close(conn)
 
         if not user or user['pin_hash'] != hash_pin(pin):
             self._send_json({'error': 'PIN이 올바르지 않습니다.'}, 401)
             return
 
         token = secrets.token_hex(24)
-        contact_name = user['contact_name'] if 'contact_name' in user.keys() else ''
-        sessions[token] = {'id': user['id'], 'name': user['name'], 'region': user['region'], 'role': user['role'], 'contact_name': contact_name}
+        contact_name = user.get('contact_name', '') or ''
+        sessions[token] = {
+            'id': user['id'], 'name': user['name'],
+            'region': user['region'], 'role': user['role'],
+            'contact_name': contact_name
+        }
         self._send_json({
             'token': token,
             'user': {'id': user['id'], 'name': user['name'], 'region': user['region'], 'role': user['role'], 'contact_name': contact_name}
@@ -240,8 +379,7 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
     def _handle_logout(self):
         auth = self.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
-            token = auth[7:]
-            sessions.pop(token, None)
+            sessions.pop(auth[7:], None)
         self._send_json({'success': True})
 
     def _handle_me(self):
@@ -259,8 +397,8 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return
 
         conn = get_db()
-        categories = conn.execute('SELECT * FROM categories ORDER BY sort_order').fetchall()
-        items = conn.execute("""
+        categories = db_fetchall(db_execute(conn, 'SELECT * FROM categories ORDER BY sort_order'))
+        items = db_fetchall(db_execute(conn, """
             SELECT i.*, c.name as category_name,
                 COALESCE(ch.checked, 0) as checked,
                 ch.checked_at,
@@ -269,8 +407,8 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             JOIN categories c ON i.category_id = c.id
             LEFT JOIN checks ch ON i.id = ch.item_id AND ch.staff_id = ?
             ORDER BY c.sort_order, i.sort_order
-        """, (user['id'],)).fetchall()
-        conn.close()
+        """, (user['id'],)))
+        db_close(conn)
 
         result = []
         for cat in categories:
@@ -290,22 +428,38 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
         staff_id = user['id']
 
         conn = get_db()
-        if checked:
-            conn.execute("""
-                INSERT INTO checks (item_id, staff_id, checked, checked_at)
-                VALUES (?, ?, 1, datetime('now', 'localtime'))
-                ON CONFLICT(item_id, staff_id)
-                DO UPDATE SET checked = 1, checked_at = datetime('now', 'localtime')
-            """, (item_id, staff_id))
+        if USE_PG:
+            if checked:
+                db_execute(conn, """
+                    INSERT INTO checks (item_id, staff_id, checked, checked_at)
+                    VALUES (?, ?, 1, NOW())
+                    ON CONFLICT(item_id, staff_id)
+                    DO UPDATE SET checked = 1, checked_at = NOW()
+                """, (item_id, staff_id))
+            else:
+                db_execute(conn, """
+                    INSERT INTO checks (item_id, staff_id, checked, checked_at)
+                    VALUES (?, ?, 0, NULL)
+                    ON CONFLICT(item_id, staff_id)
+                    DO UPDATE SET checked = 0, checked_at = NULL
+                """, (item_id, staff_id))
         else:
-            conn.execute("""
-                INSERT INTO checks (item_id, staff_id, checked, checked_at)
-                VALUES (?, ?, 0, NULL)
-                ON CONFLICT(item_id, staff_id)
-                DO UPDATE SET checked = 0, checked_at = NULL
-            """, (item_id, staff_id))
-        conn.commit()
-        conn.close()
+            if checked:
+                db_execute(conn, """
+                    INSERT INTO checks (item_id, staff_id, checked, checked_at)
+                    VALUES (?, ?, 1, datetime('now', 'localtime'))
+                    ON CONFLICT(item_id, staff_id)
+                    DO UPDATE SET checked = 1, checked_at = datetime('now', 'localtime')
+                """, (item_id, staff_id))
+            else:
+                db_execute(conn, """
+                    INSERT INTO checks (item_id, staff_id, checked, checked_at)
+                    VALUES (?, ?, 0, NULL)
+                    ON CONFLICT(item_id, staff_id)
+                    DO UPDATE SET checked = 0, checked_at = NULL
+                """, (item_id, staff_id))
+        db_commit(conn)
+        db_close(conn)
         self._send_json({'success': True})
 
     # --- Dashboard (admin only) ---
@@ -316,40 +470,44 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return
 
         conn = get_db()
-        total_items = conn.execute('SELECT COUNT(*) FROM items').fetchone()[0]
-        staff_list = conn.execute("SELECT id, name, region, role, contact_name FROM staff WHERE role = 'staff' ORDER BY id").fetchall()
+        r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM items'))
+        total_items = r['cnt'] if USE_PG else r[0]
+
+        staff_list = db_fetchall(db_execute(conn, "SELECT id, name, region, role, contact_name FROM staff WHERE role = 'staff' ORDER BY id"))
         staff_count = len(staff_list)
 
         staff_stats = []
         for s in staff_list:
-            checked = conn.execute(
-                'SELECT COUNT(*) FROM checks WHERE staff_id = ? AND checked = 1', (s['id'],)
-            ).fetchone()[0]
+            r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM checks WHERE staff_id = ? AND checked = 1', (s['id'],)))
+            checked = r['cnt'] if USE_PG else r[0]
             pct = round((checked / total_items * 100)) if total_items > 0 else 0
             d = dict(s)
             d.update({'checked': checked, 'total': total_items, 'percent': pct})
             staff_stats.append(d)
 
-        categories = conn.execute('SELECT * FROM categories ORDER BY sort_order').fetchall()
+        categories = db_fetchall(db_execute(conn, 'SELECT * FROM categories ORDER BY sort_order'))
         cat_stats = []
         for cat in categories:
-            item_count = conn.execute('SELECT COUNT(*) FROM items WHERE category_id = ?', (cat['id'],)).fetchone()[0]
+            r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM items WHERE category_id = ?', (cat['id'],)))
+            item_count = r['cnt'] if USE_PG else r[0]
             total_checks = item_count * staff_count
-            done_checks = conn.execute("""
-                SELECT COUNT(*) FROM checks ch
+            r = db_fetchone(db_execute(conn, """
+                SELECT COUNT(*) as cnt FROM checks ch
                 JOIN items i ON ch.item_id = i.id
                 WHERE i.category_id = ? AND ch.checked = 1
-            """, (cat['id'],)).fetchone()[0]
+            """, (cat['id'],)))
+            done_checks = r['cnt'] if USE_PG else r[0]
             pct = round((done_checks / total_checks * 100)) if total_checks > 0 else 0
             d = dict(cat)
             d.update({'itemCount': item_count, 'totalChecks': total_checks, 'doneChecks': done_checks, 'percent': pct})
             cat_stats.append(d)
 
         total_checks = total_items * staff_count
-        done_checks = conn.execute('SELECT COUNT(*) FROM checks WHERE checked = 1').fetchone()[0]
+        r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM checks WHERE checked = 1'))
+        done_checks = r['cnt'] if USE_PG else r[0]
         overall_pct = round((done_checks / total_checks * 100)) if total_checks > 0 else 0
 
-        recent = conn.execute("""
+        recent = db_fetchall(db_execute(conn, """
             SELECT ch.checked_at, s.name as staff_name, i.name as item_name, ch.checked
             FROM checks ch
             JOIN staff s ON ch.staff_id = s.id
@@ -357,19 +515,19 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             WHERE ch.checked_at IS NOT NULL
             ORDER BY ch.checked_at DESC
             LIMIT 20
-        """).fetchall()
+        """))
 
-        item_details = conn.execute("""
+        item_details = db_fetchall(db_execute(conn, """
             SELECT i.id, i.name, i.category_id, c.name as category_name,
                 COUNT(CASE WHEN ch.checked = 1 THEN 1 END) as checked_count
             FROM items i
             JOIN categories c ON i.category_id = c.id
             LEFT JOIN checks ch ON i.id = ch.item_id
-            GROUP BY i.id
+            GROUP BY i.id, i.name, i.category_id, c.name, c.sort_order, i.sort_order
             ORDER BY c.sort_order, i.sort_order
-        """).fetchall()
+        """))
 
-        conn.close()
+        db_close(conn)
 
         self._send_json({
             'totalItems': total_items,
@@ -397,9 +555,9 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return
 
         conn = get_db()
-        conn.execute('UPDATE staff SET pin_hash = ? WHERE id = ?', (hash_pin(new_pin), target_id))
-        conn.commit()
-        conn.close()
+        db_execute(conn, 'UPDATE staff SET pin_hash = ? WHERE id = ?', (hash_pin(new_pin), target_id))
+        db_commit(conn)
+        db_close(conn)
         self._send_json({'success': True})
 
     # --- Staff: change own PIN ---
@@ -416,15 +574,15 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return
 
         conn = get_db()
-        row = conn.execute('SELECT pin_hash FROM staff WHERE id = ?', (user['id'],)).fetchone()
+        row = db_fetchone(db_execute(conn, 'SELECT pin_hash FROM staff WHERE id = ?', (user['id'],)))
         if not row or row['pin_hash'] != hash_pin(current_pin):
-            conn.close()
+            db_close(conn)
             self._send_json({'error': '현재 PIN이 올바르지 않습니다.'}, 401)
             return
 
-        conn.execute('UPDATE staff SET pin_hash = ? WHERE id = ?', (hash_pin(new_pin), user['id']))
-        conn.commit()
-        conn.close()
+        db_execute(conn, 'UPDATE staff SET pin_hash = ? WHERE id = ?', (hash_pin(new_pin), user['id']))
+        db_commit(conn)
+        db_close(conn)
         self._send_json({'success': True})
 
     # --- Staff: update contact name ---
@@ -436,11 +594,10 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
 
         contact_name = body.get('contact_name', '').strip()
         conn = get_db()
-        conn.execute('UPDATE staff SET contact_name = ? WHERE id = ?', (contact_name, user['id']))
-        conn.commit()
-        conn.close()
+        db_execute(conn, 'UPDATE staff SET contact_name = ? WHERE id = ?', (contact_name, user['id']))
+        db_commit(conn)
+        db_close(conn)
 
-        # Update session
         auth = self.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
             token = auth[7:]
@@ -456,8 +613,8 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             self._send_json({'error': 'unauthorized'}, 401)
             return
         conn = get_db()
-        rows = conn.execute('SELECT key, value FROM config').fetchall()
-        conn.close()
+        rows = db_fetchall(db_execute(conn, 'SELECT key, value FROM config'))
+        db_close(conn)
         self._send_json({r['key']: r['value'] for r in rows})
 
     def _handle_save_config(self, body):
@@ -467,12 +624,18 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return
         conn = get_db()
         for key, value in body.items():
-            conn.execute(
-                "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
-                (key, value, value)
-            )
-        conn.commit()
-        conn.close()
+            if USE_PG:
+                db_execute(conn,
+                    "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value",
+                    (key, value)
+                )
+            else:
+                db_execute(conn,
+                    "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+                    (key, value, value)
+                )
+        db_commit(conn)
+        db_close(conn)
         self._send_json({'success': True})
 
     # --- Export (for Google Sheets sync) ---
@@ -481,58 +644,66 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
         if not user or user['role'] != 'admin':
             self._send_json({'error': 'unauthorized'}, 401)
             return
+        self._send_json(self._get_export_data())
 
+    def _get_export_data(self):
+        """Build export data dict for Google Sheets sync."""
         conn = get_db()
-        total_items = conn.execute('SELECT COUNT(*) FROM items').fetchone()[0]
-        staff_list = conn.execute("SELECT id, name, region, role, contact_name FROM staff WHERE role = 'staff' ORDER BY id").fetchall()
+        r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM items'))
+        total_items = r['cnt'] if USE_PG else r[0]
+
+        staff_list = db_fetchall(db_execute(conn, "SELECT id, name, region, role, contact_name FROM staff WHERE role = 'staff' ORDER BY id"))
         staff_count = len(staff_list)
 
         staff_stats = []
         for s in staff_list:
-            checked = conn.execute('SELECT COUNT(*) FROM checks WHERE staff_id = ? AND checked = 1', (s['id'],)).fetchone()[0]
+            r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM checks WHERE staff_id = ? AND checked = 1', (s['id'],)))
+            checked = r['cnt'] if USE_PG else r[0]
             pct = round((checked / total_items * 100)) if total_items > 0 else 0
             d = dict(s)
             d.update({'checked': checked, 'total': total_items, 'percent': pct})
             staff_stats.append(d)
 
-        categories = conn.execute('SELECT * FROM categories ORDER BY sort_order').fetchall()
+        categories = db_fetchall(db_execute(conn, 'SELECT * FROM categories ORDER BY sort_order'))
         cat_stats = []
         for cat in categories:
-            item_count = conn.execute('SELECT COUNT(*) FROM items WHERE category_id = ?', (cat['id'],)).fetchone()[0]
+            r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM items WHERE category_id = ?', (cat['id'],)))
+            item_count = r['cnt'] if USE_PG else r[0]
             total_checks = item_count * staff_count
-            done_checks = conn.execute("""
-                SELECT COUNT(*) FROM checks ch JOIN items i ON ch.item_id = i.id
+            r = db_fetchone(db_execute(conn, """
+                SELECT COUNT(*) as cnt FROM checks ch JOIN items i ON ch.item_id = i.id
                 WHERE i.category_id = ? AND ch.checked = 1
-            """, (cat['id'],)).fetchone()[0]
+            """, (cat['id'],)))
+            done_checks = r['cnt'] if USE_PG else r[0]
             pct = round((done_checks / total_checks * 100)) if total_checks > 0 else 0
             d = dict(cat)
             d.update({'itemCount': item_count, 'totalChecks': total_checks, 'doneChecks': done_checks, 'percent': pct})
             cat_stats.append(d)
 
         total_checks = total_items * staff_count
-        done_checks = conn.execute('SELECT COUNT(*) FROM checks WHERE checked = 1').fetchone()[0]
+        r = db_fetchone(db_execute(conn, 'SELECT COUNT(*) as cnt FROM checks WHERE checked = 1'))
+        done_checks = r['cnt'] if USE_PG else r[0]
         overall_pct = round((done_checks / total_checks * 100)) if total_checks > 0 else 0
 
-        # Per-item per-staff detail
-        items_all = conn.execute("""
+        items_all = db_fetchall(db_execute(conn, """
             SELECT i.id, i.name, c.name as category_name, i.sort_order, c.sort_order as cat_sort
             FROM items i JOIN categories c ON i.category_id = c.id
             ORDER BY c.sort_order, i.sort_order
-        """).fetchall()
+        """))
 
         item_detail_rows = []
         for item in items_all:
             row = {'item_name': item['name'], 'category': item['category_name']}
             for s in staff_list:
-                ch = conn.execute('SELECT checked FROM checks WHERE item_id = ? AND staff_id = ?', (item['id'], s['id'])).fetchone()
+                ch = db_fetchone(db_execute(conn, 'SELECT checked FROM checks WHERE item_id = ? AND staff_id = ?', (item['id'], s['id'])))
                 row[s['name']] = 1 if ch and ch['checked'] else 0
             item_detail_rows.append(row)
 
-        conn.close()
+        db_close(conn)
 
-        self._send_json({
+        return {
             'title': '청토지 보수교육 3/18 1차 대면 실습 준비 체크리스트',
-            'exportedAt': __import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'exportedAt': datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),
             'totalItems': total_items,
             'staffCount': staff_count,
             'overallPercent': overall_pct,
@@ -542,7 +713,7 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             'catStats': cat_stats,
             'itemDetailRows': item_detail_rows,
             'staffNames': [s['name'] for s in staff_list],
-        })
+        }
 
     # --- Server-side Google Sheets sync (bypasses CORS) ---
     def _handle_sync_sheets(self, body):
@@ -556,69 +727,8 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             self._send_json({'error': 'Google Apps Script URL이 필요합니다.'}, 400)
             return
 
-        # Get export data
-        conn = get_db()
-        total_items = conn.execute('SELECT COUNT(*) FROM items').fetchone()[0]
-        staff_list = conn.execute("SELECT id, name, region, role, contact_name FROM staff WHERE role = 'staff' ORDER BY id").fetchall()
-        staff_count = len(staff_list)
+        export_data = self._get_export_data()
 
-        staff_stats = []
-        for s in staff_list:
-            checked = conn.execute('SELECT COUNT(*) FROM checks WHERE staff_id = ? AND checked = 1', (s['id'],)).fetchone()[0]
-            pct = round((checked / total_items * 100)) if total_items > 0 else 0
-            d = dict(s)
-            d.update({'checked': checked, 'total': total_items, 'percent': pct})
-            staff_stats.append(d)
-
-        categories = conn.execute('SELECT * FROM categories ORDER BY sort_order').fetchall()
-        cat_stats = []
-        for cat in categories:
-            item_count = conn.execute('SELECT COUNT(*) FROM items WHERE category_id = ?', (cat['id'],)).fetchone()[0]
-            total_checks_cat = item_count * staff_count
-            done_checks_cat = conn.execute("""
-                SELECT COUNT(*) FROM checks ch JOIN items i ON ch.item_id = i.id
-                WHERE i.category_id = ? AND ch.checked = 1
-            """, (cat['id'],)).fetchone()[0]
-            pct = round((done_checks_cat / total_checks_cat * 100)) if total_checks_cat > 0 else 0
-            d = dict(cat)
-            d.update({'itemCount': item_count, 'totalChecks': total_checks_cat, 'doneChecks': done_checks_cat, 'percent': pct})
-            cat_stats.append(d)
-
-        total_checks = total_items * staff_count
-        done_checks = conn.execute('SELECT COUNT(*) FROM checks WHERE checked = 1').fetchone()[0]
-        overall_pct = round((done_checks / total_checks * 100)) if total_checks > 0 else 0
-
-        items_all = conn.execute("""
-            SELECT i.id, i.name, c.name as category_name, i.sort_order, c.sort_order as cat_sort
-            FROM items i JOIN categories c ON i.category_id = c.id
-            ORDER BY c.sort_order, i.sort_order
-        """).fetchall()
-
-        item_detail_rows = []
-        for item in items_all:
-            row = {'item_name': item['name'], 'category': item['category_name']}
-            for s in staff_list:
-                ch = conn.execute('SELECT checked FROM checks WHERE item_id = ? AND staff_id = ?', (item['id'], s['id'])).fetchone()
-                row[s['name']] = 1 if ch and ch['checked'] else 0
-            item_detail_rows.append(row)
-        conn.close()
-
-        export_data = {
-            'title': '청토지 보수교육 3/18 1차 대면 실습 준비 체크리스트',
-            'exportedAt': __import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'totalItems': total_items,
-            'staffCount': staff_count,
-            'overallPercent': overall_pct,
-            'doneChecks': done_checks,
-            'totalChecks': total_checks,
-            'staffStats': staff_stats,
-            'catStats': cat_stats,
-            'itemDetailRows': item_detail_rows,
-            'staffNames': [s['name'] for s in staff_list],
-        }
-
-        # POST to Google Apps Script (server-side, no CORS issues)
-        # Google Apps Script returns 302 redirects; we need to follow them
         try:
             payload = json.dumps(export_data, ensure_ascii=False).encode('utf-8')
             req = Request(sheets_url, data=payload, headers={
@@ -634,21 +744,18 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
                 result = {'success': True, 'message': '동기화 요청 전송됨'}
             self._send_json(result)
         except HTTPError as e:
-            # 302 redirect - follow it manually
             if e.code in (301, 302, 303, 307, 308):
                 redirect_url = e.headers.get('Location', '')
                 if redirect_url:
                     try:
-                        redirect_req = Request(redirect_url)
-                        resp2 = urlopen(redirect_req, timeout=30, context=ctx)
+                        resp2 = urlopen(Request(redirect_url), timeout=30, context=ctx)
                         resp_body = resp2.read().decode('utf-8')
                         try:
                             result = json.loads(resp_body)
                         except json.JSONDecodeError:
                             result = {'success': True, 'message': '동기화 완료'}
                         self._send_json(result)
-                    except Exception as e2:
-                        # Data was already sent to doPost, redirect is just for response
+                    except Exception:
                         self._send_json({'success': True, 'message': '동기화 요청 전송됨 (응답 확인 불가)'})
                 else:
                     self._send_json({'success': True, 'message': '동기화 요청 전송됨'})
@@ -672,6 +779,7 @@ if __name__ == '__main__':
     print('=' * 50)
     print('  청토지 보수교육 준비 체크리스트 서버')
     print(f'  http://localhost:{port}')
+    print(f'  DB: {"PostgreSQL" if USE_PG else "SQLite"}')
     print('=' * 50)
     print()
     print('  [초기 로그인 PIN]')
