@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ffb6c8">
+<title>말랑 대사 · 내 몸에 맞는 대사 촉진 프로그램</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  :root {
+    --pink: #ff9ec0;
+    --pink-soft: #ffd6e6;
+    --pink-bg: #fff5f9;
+    --mint: #8ad6c5;
+    --mint-soft: #d4f3ec;
+    --lav: #b6a8e8;
+    --lav-soft: #e8e2fb;
+    --peach: #ffcaa8;
+    --card: #ffffff;
+    --text: #4a4458;
+    --text-light: #9b94a8;
+    --border: #f0e6ee;
+    --success: #5fc9a3;
+    --warn: #ffb04d;
+    --shadow: 0 8px 24px rgba(255, 158, 192, 0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(170deg, #fff5f9 0%, #f3f0ff 55%, #eafaf5 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .app { max-width: 540px; margin: 0 auto; padding: 18px 16px 110px; }
+
+  /* Header */
+  .hero { text-align: center; padding: 18px 0 10px; }
+  .hero .logo { font-size: 2.4rem; line-height: 1; }
+  .hero h1 { font-size: 1.45rem; margin-top: 6px; letter-spacing: -0.5px; }
+  .hero p { color: var(--text-light); font-size: 0.86rem; margin-top: 4px; }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+  .card h2 { font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .em { font-size: 1.2rem; }
+  .card .hint { color: var(--text-light); font-size: 0.78rem; margin-top: -8px; margin-bottom: 14px; line-height: 1.5; }
+
+  /* Form */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .field input[type=number], .field select {
+    width: 100%; padding: 13px 14px; font-size: 1rem; font-family: inherit;
+    border: 2px solid var(--border); border-radius: 14px; background: #fffafc; color: var(--text);
+    transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--pink); }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+
+  .seg { display: flex; gap: 8px; }
+  .seg button {
+    flex: 1; padding: 12px 0; font-size: 0.95rem; font-weight: 600; font-family: inherit;
+    border: 2px solid var(--border); border-radius: 14px; background: #fffafc; color: var(--text-light); cursor: pointer;
+    transition: all .15s;
+  }
+  .seg button.on { border-color: var(--pink); background: var(--pink-soft); color: var(--text); }
+
+  .btn {
+    width: 100%; padding: 15px; font-size: 1rem; font-weight: 700; font-family: inherit;
+    border: none; border-radius: 16px; cursor: pointer;
+    background: linear-gradient(135deg, var(--pink) 0%, var(--lav) 100%); color: #fff;
+    box-shadow: 0 6px 16px rgba(182, 168, 232, 0.35); transition: transform .1s, opacity .15s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn.ghost { background: #fff; color: var(--text-light); border: 2px solid var(--border); box-shadow: none; }
+  .btn.sm { width: auto; padding: 10px 18px; font-size: 0.85rem; }
+
+  /* Results */
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat {
+    background: var(--pink-bg); border-radius: 18px; padding: 16px; text-align: center;
+  }
+  .stat.mint { background: var(--mint-soft); }
+  .stat.lav { background: var(--lav-soft); }
+  .stat.peach { background: #fff1e8; }
+  .stat .num { font-size: 1.7rem; font-weight: 800; letter-spacing: -1px; }
+  .stat .num small { font-size: 0.8rem; font-weight: 600; color: var(--text-light); }
+  .stat .cap { font-size: 0.74rem; color: var(--text-light); margin-top: 3px; }
+
+  .bmi-bar { height: 12px; border-radius: 999px; margin: 14px 0 6px; position: relative;
+    background: linear-gradient(90deg, #8ad6c5 0%, #8ad6c5 22%, #aede7a 22%, #aede7a 45%, #ffd166 45%, #ffd166 62%, #ff9ec0 62%, #ff7a9e 100%); }
+  .bmi-bar .marker { position: absolute; top: -5px; width: 4px; height: 22px; background: #4a4458; border-radius: 2px; transform: translateX(-2px);
+    box-shadow: 0 0 0 3px #fff; }
+  .bmi-legend { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--text-light); }
+
+  .target-note { background: var(--mint-soft); border-radius: 16px; padding: 14px 16px; margin-top: 14px; font-size: 0.85rem; line-height: 1.6; }
+  .target-note b { color: #3aa183; }
+
+  .macros { display: flex; gap: 10px; margin-top: 14px; }
+  .macro { flex: 1; text-align: center; padding: 12px 6px; border-radius: 14px; background: #fffafc; border: 1px solid var(--border); }
+  .macro .mn { font-size: 1.1rem; font-weight: 800; }
+  .macro .ml { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+
+  /* Habits */
+  .streak { display: flex; align-items: center; justify-content: center; gap: 8px; background: #fff1e8;
+    border-radius: 16px; padding: 12px; margin-bottom: 14px; font-weight: 700; }
+  .streak .big { font-size: 1.5rem; color: var(--peach); }
+  .habit {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 16px;
+    background: #fffafc; border: 2px solid var(--border); margin-bottom: 10px; cursor: pointer; transition: all .15s;
+  }
+  .habit:active { transform: scale(0.99); }
+  .habit.done { background: var(--mint-soft); border-color: var(--mint); }
+  .habit .box {
+    width: 26px; height: 26px; border-radius: 9px; border: 2px solid var(--border); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 0.95rem; color: transparent; background: #fff; transition: all .15s;
+  }
+  .habit.done .box { background: var(--mint); border-color: var(--mint); color: #fff; }
+  .habit .em { font-size: 1.2rem; }
+  .habit .label { flex: 1; font-size: 0.92rem; font-weight: 600; }
+  .habit .label small { display: block; font-weight: 400; color: var(--text-light); font-size: 0.72rem; margin-top: 1px; }
+  .progress-ring { text-align: center; margin-top: 6px; font-size: 0.82rem; color: var(--text-light); }
+
+  /* Weight chart */
+  .weight-input { display: flex; gap: 10px; margin-bottom: 16px; }
+  .weight-input input { flex: 1; }
+  .chart-wrap { position: relative; }
+  svg.chart { width: 100%; height: 180px; display: block; overflow: visible; }
+  .chart-empty { text-align: center; color: var(--text-light); padding: 30px 0; font-size: 0.85rem; }
+  .log-list { margin-top: 14px; max-height: 200px; overflow-y: auto; }
+  .log-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+  .log-row .d { color: var(--text-light); font-size: 0.8rem; }
+  .log-row .w { font-weight: 700; }
+  .log-row .del { color: var(--text-light); cursor: pointer; padding: 4px 8px; font-size: 0.8rem; }
+  .log-row .chg { font-size: 0.72rem; font-weight: 700; margin-left: 8px; }
+  .chg.down { color: var(--success); } .chg.up { color: var(--pink); }
+
+  /* Tabs */
+  .tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex;
+    max-width: 540px; margin: 0 auto; padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 20px rgba(182,168,232,0.12);
+  }
+  .tabbar button {
+    flex: 1; background: none; border: none; font-family: inherit; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-light); font-size: 0.68rem; font-weight: 600;
+  }
+  .tabbar button .em { font-size: 1.35rem; filter: grayscale(0.4); opacity: 0.6; transition: all .15s; }
+  .tabbar button.on { color: var(--pink); }
+  .tabbar button.on .em { filter: none; opacity: 1; transform: translateY(-2px); }
+
+  .tab-page { display: none; }
+  .tab-page.on { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .disclaimer { font-size: 0.72rem; color: var(--text-light); line-height: 1.6; text-align: center; padding: 8px 12px 0; }
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: #fff; padding: 11px 20px; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+    opacity: 0; pointer-events: none; transition: all .25s; z-index: 50; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .empty-cta { text-align: center; color: var(--text-light); font-size: 0.88rem; line-height: 1.7; padding: 10px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hero">
+    <div class="logo">🫧</div>
+    <h1>말랑 대사</h1>
+    <p>내 몸에 딱 맞는 대사 촉진 프로그램</p>
+  </div>
+
+  <!-- ===== TAB: 내 몸 (Profile + Targets) ===== -->
+  <div class="tab-page on" id="tab-me">
+    <div class="card">
+      <h2><span class="em">🧮</span> 내 몸 정보</h2>
+      <p class="hint">키·몸무게·나이·활동량으로 기초대사량(BMR)과 하루 소비열량(TDEE)을 계산하고, 안전한 감량 목표를 잡아드려요.</p>
+
+      <div class="field">
+        <label>성별</label>
+        <div class="seg" id="sexSeg">
+          <button type="button" data-v="female" class="on">여성</button>
+          <button type="button" data-v="male">남성</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field"><label>나이</label><input type="number" id="age" inputmode="numeric" placeholder="만 나이"></div>
+        <div class="field"><label>키 (cm)</label><input type="number" id="height" inputmode="decimal" placeholder="예: 165"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>현재 체중 (kg)</label><input type="number" id="weight" inputmode="decimal" placeholder="예: 78"></div>
+        <div class="field"><label>목표 체중 (kg)</label><input type="number" id="goal" inputmode="decimal" placeholder="예: 65"></div>
+      </div>
+
+      <div class="field">
+        <label>활동량</label>
+        <select id="activity">
+          <option value="1.2">거의 안 움직임 (좌식 위주)</option>
+          <option value="1.375" selected>가벼움 (주 1~3회 운동/산책)</option>
+          <option value="1.55">보통 (주 3~5회 운동)</option>
+          <option value="1.725">활발 (주 6~7회 운동)</option>
+          <option value="1.9">매우 활발 (육체노동/선수급)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>감량 속도</label>
+        <div class="seg" id="paceSeg">
+          <button type="button" data-v="0.25" >느긋 (~0.25kg/주)</button>
+          <button type="button" data-v="0.5" class="on">표준 (~0.5kg/주)</button>
+          <button type="button" data-v="0.75">빠름 (~0.75kg/주)</button>
+        </div>
+      </div>
+
+      <button class="btn" id="calcBtn">내 프로그램 계산하기 ✨</button>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none;">
+      <h2><span class="em">📊</span> 내 맞춤 결과</h2>
+      <div class="result-grid">
+        <div class="stat"><div class="num" id="rBmr">–</div><div class="cap">기초대사량 (BMR)</div></div>
+        <div class="stat mint"><div class="num" id="rTdee">–</div><div class="cap">하루 소비열량 (TDEE)</div></div>
+        <div class="stat lav"><div class="num" id="rTarget">–</div><div class="cap">하루 권장 섭취</div></div>
+        <div class="stat peach"><div class="num" id="rBmi">–</div><div class="cap" id="rBmiCap">체질량지수 (BMI)</div></div>
+      </div>
+
+      <div class="bmi-bar"><div class="marker" id="bmiMarker" style="left:0%"></div></div>
+      <div class="bmi-legend"><span>저체중</span><span>정상</span><span>과체중</span><span>비만</span></div>
+
+      <div class="macros">
+        <div class="macro"><div class="mn" id="mCarb">–</div><div class="ml">탄수화물 (g)</div></div>
+        <div class="macro"><div class="mn" id="mProt">–</div><div class="ml">단백질 (g)</div></div>
+        <div class="macro"><div class="mn" id="mFat">–</div><div class="ml">지방 (g)</div></div>
+      </div>
+
+      <div class="target-note" id="targetNote"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: 오늘 (Habits) ===== -->
+  <div class="tab-page" id="tab-today">
+    <div class="card">
+      <h2><span class="em">🔥</span> 오늘의 대사 촉진 습관</h2>
+      <div class="streak"><span class="big" id="streakNum">0</span><span>일 연속 달성 중!</span></div>
+      <div id="habitList"></div>
+      <div class="progress-ring" id="habitProgress">오늘 0/0 완료</div>
+    </div>
+    <p class="disclaimer">작은 습관이 대사를 깨워요. 하나씩 가볍게 🫧</p>
+  </div>
+
+  <!-- ===== TAB: 기록 (Weight) ===== -->
+  <div class="tab-page" id="tab-log">
+    <div class="card">
+      <h2><span class="em">⚖️</span> 체중 기록</h2>
+      <p class="hint">매일 같은 시간(아침 공복 추천)에 재면 추세가 정확해요.</p>
+      <div class="weight-input">
+        <input type="number" id="logWeight" class="" inputmode="decimal" placeholder="오늘 체중 (kg)"
+          style="padding:13px 14px;font-size:1rem;font-family:inherit;border:2px solid var(--border);border-radius:14px;background:#fffafc;color:var(--text);">
+        <button class="btn sm" id="logBtn" style="width:auto;">기록</button>
+      </div>
+      <div class="chart-wrap">
+        <svg class="chart" id="chart" viewBox="0 0 320 160" preserveAspectRatio="none"></svg>
+        <div class="chart-empty" id="chartEmpty">아직 기록이 없어요. 첫 체중을 입력해볼까요? 🌱</div>
+      </div>
+      <div class="log-list" id="logList"></div>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    ⚠️ 이 도구는 일반적인 건강 정보 제공용이며 의학적 진단·처방이 아니에요.
+    기저질환이 있거나 큰 폭의 감량이 필요하면 의사·영양사와 상의하세요.
+    모든 데이터는 이 기기(브라우저)에만 저장됩니다.
+  </p>
+</div>
+
+<div class="tabbar">
+  <button class="on" data-tab="me"><span class="em">🧮</span>내 몸</button>
+  <button data-tab="today"><span class="em">🔥</span>오늘</button>
+  <button data-tab="log"><span class="em">⚖️</span>기록</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const LS = {
+  get: (k, d) => { try { return JSON.parse(localStorage.getItem("mallang_" + k)) ?? d; } catch { return d; } },
+  set: (k, v) => localStorage.setItem("mallang_" + k, JSON.stringify(v)),
+};
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._tmr); t._tmr = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+/* ---------------- Tabs ---------------- */
+document.querySelectorAll(".tabbar button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".tabbar button").forEach(x => x.classList.remove("on"));
+    document.querySelectorAll(".tab-page").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    $("tab-" + b.dataset.tab).classList.add("on");
+    if (b.dataset.tab === "log") renderChart();
+  });
+});
+
+/* ---------------- Segmented controls ---------------- */
+function bindSeg(segId, key, onChange) {
+  const seg = $(segId);
+  seg.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      seg.querySelectorAll("button").forEach(x => x.classList.remove("on"));
+      btn.classList.add("on");
+      if (onChange) onChange(btn.dataset.v);
+    });
+  });
+}
+bindSeg("sexSeg", "sex");
+bindSeg("paceSeg", "pace");
+const segVal = (segId) => $(segId).querySelector("button.on").dataset.v;
+
+/* ---------------- Profile + Calculation ---------------- */
+const PROFILE_FIELDS = ["age", "height", "weight", "goal", "activity"];
+
+function loadProfile() {
+  const p = LS.get("profile", null);
+  if (!p) return;
+  PROFILE_FIELDS.forEach(f => { if (p[f] != null) $(f).value = p[f]; });
+  if (p.sex) setSeg("sexSeg", p.sex);
+  if (p.pace) setSeg("paceSeg", p.pace);
+  if (p.weight && !$("logWeight").value) { /* keep */ }
+  if (p.calculated) calculate(false);
+}
+function setSeg(segId, v) {
+  const seg = $(segId); let found = false;
+  seg.querySelectorAll("button").forEach(b => {
+    const on = b.dataset.v === String(v); b.classList.toggle("on", on); if (on) found = true;
+  });
+  if (!found) seg.querySelector("button").classList.add("on");
+}
+
+function calculate(save = true) {
+  const sex = segVal("sexSeg");
+  const age = parseFloat($("age").value);
+  const h = parseFloat($("height").value);
+  const w = parseFloat($("weight").value);
+  const goal = parseFloat($("goal").value);
+  const act = parseFloat($("activity").value);
+  const pace = parseFloat(segVal("paceSeg"));
+
+  if (!age || !h || !w) { toast("나이·키·체중을 입력해주세요 🙏"); return; }
+
+  // Mifflin-St Jeor BMR
+  let bmr = 10 * w + 6.25 * h - 5 * age + (sex === "male" ? 5 : -161);
+  bmr = Math.round(bmr);
+  const tdee = Math.round(bmr * act);
+
+  // Safe deficit: pace kg/week -> 7700 kcal/kg
+  let deficit = Math.round(pace * 7700 / 7);
+  let target = tdee - deficit;
+  // Safety floor: don't go below BMR or below 1200(여)/1500(남)
+  const floor = Math.max(sex === "male" ? 1500 : 1200, Math.round(bmr * 0.95));
+  let floored = false;
+  if (target < floor) { target = floor; floored = true; deficit = tdee - target; }
+
+  // BMI
+  const bmi = w / Math.pow(h / 100, 2);
+  const bmiR = bmi.toFixed(1);
+  let bmiCat = "", catColor = "";
+  if (bmi < 18.5) { bmiCat = "저체중"; }
+  else if (bmi < 23) { bmiCat = "정상"; }
+  else if (bmi < 25) { bmiCat = "과체중"; }
+  else if (bmi < 30) { bmiCat = "비만"; }
+  else { bmiCat = "고도비만"; }
+
+  // Macros: protein 1.6 g/kg, fat 25% kcal, rest carbs
+  const protG = Math.round(w * 1.6);
+  const fatG = Math.round(target * 0.25 / 9);
+  const carbG = Math.max(0, Math.round((target - protG * 4 - fatG * 9) / 4));
+
+  // Render
+  $("resultCard").style.display = "block";
+  $("rBmr").innerHTML = bmr + " <small>kcal</small>";
+  $("rTdee").innerHTML = tdee + " <small>kcal</small>";
+  $("rTarget").innerHTML = target + " <small>kcal</small>";
+  $("rBmi").textContent = bmiR;
+  $("rBmiCap").textContent = "BMI · " + bmiCat;
+
+  // BMI marker position (map 15~35 to 0~100%)
+  const pos = Math.max(0, Math.min(100, (bmi - 15) / (35 - 15) * 100));
+  $("bmiMarker").style.left = pos + "%";
+
+  $("mCarb").textContent = carbG;
+  $("mProt").textContent = protG;
+  $("mFat").textContent = fatG;
+
+  // Target note + timeline
+  let note = "";
+  if (goal && goal < w) {
+    const toLose = (w - goal);
+    const weeks = Math.ceil(toLose / pace);
+    const eta = new Date(); eta.setDate(eta.getDate() + weeks * 7);
+    const etaStr = (eta.getMonth()+1) + "월 " + eta.getDate() + "일";
+    note = `목표까지 <b>${toLose.toFixed(1)}kg</b> · 주 ${pace}kg 속도면 약 <b>${weeks}주</b> (${etaStr}쯤) 걸려요. ` +
+           `하루 <b>${deficit}kcal</b> 덜 먹거나 더 움직이는 셈이에요.`;
+    if (floored) note += " <br>🛟 너무 적게 먹지 않도록 섭취량에 안전 하한선을 적용했어요.";
+  } else if (goal && goal >= w) {
+    note = "목표 체중이 현재보다 높거나 같아요. 유지 또는 근육 늘리기 모드라면 TDEE 근처로 드세요. 💪";
+  } else {
+    note = `현재 BMI는 <b>${bmiR} (${bmiCat})</b>. 목표 체중을 입력하면 도달 예상 기간을 알려드릴게요.`;
+  }
+  if (bmiCat === "정상" && (!goal || goal >= w)) note += " 지금도 정상 범위예요. 무리한 감량보다 컨디션 유지를 추천해요. 🌿";
+  $("targetNote").innerHTML = note;
+
+  if (save) {
+    const profile = { sex, age, height: h, weight: w, goal, activity: act, pace, calculated: true };
+    LS.set("profile", profile);
+    // seed first weight log if empty
+    const log = LS.get("weightLog", []);
+    if (log.length === 0) { log.push({ date: todayStr(), w }); LS.set("weightLog", log); }
+    buildHabits();
+    toast("내 몸에 맞춰 계산했어요 ✨");
+  }
+}
+$("calcBtn").addEventListener("click", () => calculate(true));
+
+/* ---------------- Habits ---------------- */
+const DEFAULT_HABITS = [
+  { id: "water", em: "💧", label: "물 8잔 마시기", sub: "대사의 시작은 수분" },
+  { id: "walk", em: "🚶", label: "30분 이상 걷기", sub: "가장 쉬운 칼로리 소모" },
+  { id: "strength", em: "🏋️", label: "근력 운동 10분+", sub: "근육이 기초대사량을 올려요" },
+  { id: "protein", em: "🍳", label: "끼니마다 단백질", sub: "포만감 + 근육 유지" },
+  { id: "sleep", em: "😴", label: "7시간 이상 수면", sub: "잠 부족은 식욕 호르몬을 깨워요" },
+  { id: "noLate", em: "🌙", label: "야식 안 먹기", sub: "자기 3시간 전 식사 마치기" },
+  { id: "stairs", em: "🪜", label: "계단 이용하기", sub: "일상 속 NEAT 늘리기" },
+];
+
+function getHabitState() {
+  const all = LS.get("habits", {});
+  const t = todayStr();
+  if (!all[t]) all[t] = {};
+  return { all, today: all[t], t };
+}
+
+function buildHabits() {
+  const list = $("habitList");
+  const { today } = getHabitState();
+  list.innerHTML = "";
+  DEFAULT_HABITS.forEach(h => {
+    const done = !!today[h.id];
+    const row = document.createElement("div");
+    row.className = "habit" + (done ? " done" : "");
+    row.innerHTML = `<div class="box">✓</div><span class="em">${h.em}</span>
+      <div class="label">${h.label}<small>${h.sub}</small></div>`;
+    row.addEventListener("click", () => toggleHabit(h.id));
+    list.appendChild(row);
+  });
+  updateHabitProgress();
+}
+
+function toggleHabit(id) {
+  const { all, today, t } = getHabitState();
+  today[id] = !today[id];
+  all[t] = today;
+  LS.set("habits", all);
+  buildHabits();
+}
+
+function updateHabitProgress() {
+  const { today } = getHabitState();
+  const done = DEFAULT_HABITS.filter(h => today[h.id]).length;
+  const total = DEFAULT_HABITS.length;
+  $("habitProgress").textContent = `오늘 ${done}/${total} 완료` + (done === total ? " 🎉 완벽해요!" : "");
+  $("streakNum").textContent = computeStreak();
+}
+
+// streak = consecutive days (ending today or yesterday) with >= 4 habits done
+function computeStreak() {
+  const all = LS.get("habits", {});
+  const THRESH = 4;
+  let streak = 0;
+  const d = new Date();
+  // allow today to count if already qualified; otherwise start from yesterday
+  const fmt = (dt) => dt.getFullYear() + "-" + String(dt.getMonth()+1).padStart(2,"0") + "-" + String(dt.getDate()).padStart(2,"0");
+  const dayCount = (key) => all[key] ? DEFAULT_HABITS.filter(h => all[key][h.id]).length : 0;
+  if (dayCount(fmt(d)) < THRESH) d.setDate(d.getDate() - 1);
+  while (dayCount(fmt(d)) >= THRESH) { streak++; d.setDate(d.getDate() - 1); }
+  return streak;
+}
+
+/* ---------------- Weight log + chart ---------------- */
+$("logBtn").addEventListener("click", () => {
+  const w = parseFloat($("logWeight").value);
+  if (!w || w < 20 || w > 400) { toast("체중을 다시 확인해주세요 🙏"); return; }
+  const log = LS.get("weightLog", []);
+  const t = todayStr();
+  const existing = log.find(e => e.date === t);
+  if (existing) existing.w = w; else log.push({ date: t, w });
+  log.sort((a, b) => a.date.localeCompare(b.date));
+  LS.set("weightLog", log);
+  $("logWeight").value = "";
+  toast("기록했어요 ⚖️");
+  renderChart();
+});
+
+function renderChart() {
+  const log = LS.get("weightLog", []);
+  const svg = $("chart");
+  const empty = $("chartEmpty");
+  const listEl = $("logList");
+
+  if (log.length === 0) {
+    svg.style.display = "none"; empty.style.display = "block"; listEl.innerHTML = ""; return;
+  }
+  svg.style.display = "block"; empty.style.display = "none";
+
+  const W = 320, H = 160, padX = 8, padY = 18;
+  const ws = log.map(e => e.w);
+  const goal = (LS.get("profile", {}) || {}).goal;
+  let min = Math.min(...ws), max = Math.max(...ws);
+  if (goal) { min = Math.min(min, goal); max = Math.max(max, goal); }
+  if (max - min < 2) { max += 1; min -= 1; }
+  const range = max - min;
+  const n = log.length;
+  const x = (i) => padX + (n === 1 ? (W - 2*padX)/2 : i * (W - 2*padX) / (n - 1));
+  const y = (v) => padY + (max - v) / range * (H - 2*padY);
+
+  let parts = "";
+  // goal line
+  if (goal) {
+    const gy = y(goal);
+    parts += `<line x1="${padX}" y1="${gy}" x2="${W-padX}" y2="${gy}" stroke="#8ad6c5" stroke-width="1.5" stroke-dasharray="4 4"/>`;
+    parts += `<text x="${W-padX}" y="${gy-4}" font-size="9" fill="#3aa183" text-anchor="end">목표 ${goal}kg</text>`;
+  }
+  // area + line
+  const pts = log.map((e, i) => `${x(i)},${y(e.w)}`).join(" ");
+  if (n > 1) {
+    parts += `<polyline points="${pts}" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const area = `${padX},${H-padY} ` + pts + ` ${x(n-1)},${H-padY}`;
+    parts += `<polygon points="${area}" fill="url(#ga)" opacity="0.25"/>`;
+  }
+  log.forEach((e, i) => {
+    parts += `<circle cx="${x(i)}" cy="${y(e.w)}" r="${i===n-1?4.5:3}" fill="${i===n-1?'#ff7a9e':'#b6a8e8'}" stroke="#fff" stroke-width="1.5"/>`;
+  });
+  // current & start labels
+  parts += `<text x="${x(0)}" y="${y(ws[0])-8}" font-size="9" fill="#9b94a8">${ws[0]}</text>`;
+  if (n > 1) parts += `<text x="${x(n-1)}" y="${y(ws[n-1])-8}" font-size="10" fill="#ff7a9e" text-anchor="end" font-weight="700">${ws[n-1]}kg</text>`;
+
+  svg.innerHTML = `<defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#b6a8e8"/><stop offset="100%" stop-color="#ff9ec0"/></linearGradient>
+      <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff9ec0"/><stop offset="100%" stop-color="#fff"/></linearGradient>
+    </defs>` + parts;
+
+  // log list (newest first)
+  listEl.innerHTML = "";
+  const rev = [...log].reverse();
+  rev.forEach((e, idx) => {
+    const prev = rev[idx + 1];
+    let chg = "";
+    if (prev) {
+      const diff = e.w - prev.w;
+      const cls = diff < 0 ? "down" : (diff > 0 ? "up" : "");
+      const sign = diff < 0 ? "▼" : (diff > 0 ? "▲" : "–");
+      if (diff !== 0) chg = `<span class="chg ${cls}">${sign}${Math.abs(diff).toFixed(1)}</span>`;
+    }
+    const row = document.createElement("div");
+    row.className = "log-row";
+    row.innerHTML = `<span class="d">${e.date}</span>
+      <span><span class="w">${e.w}kg</span>${chg}</span>
+      <span class="del" data-date="${e.date}">삭제</span>`;
+    row.querySelector(".del").addEventListener("click", () => {
+      const l2 = LS.get("weightLog", []).filter(x => x.date !== e.date);
+      LS.set("weightLog", l2); renderChart();
+    });
+    listEl.appendChild(row);
+  });
+}
+
+/* ---------------- Init ---------------- */
+loadProfile();
+buildHabits();
+renderChart();
+</script>
+</body>
+</html>
