@@ -6,6 +6,7 @@ import sqlite3
 import os
 import hashlib
 import secrets
+import time
 import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -13,6 +14,11 @@ import http.client
 import ssl
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
+
+from oauth_providers import (
+    enabled_providers, get_provider,
+    build_authorize_url, exchange_code_for_token, fetch_profile, OAuthError,
+)
 
 # PostgreSQL support (optional, for Render deployment)
 try:
@@ -28,6 +34,18 @@ PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 
 # Simple session store (in-memory)
 sessions = {}
+
+# OAuth state 저장소 (CSRF 방지). state -> (provider, expires_at)
+oauth_states = {}
+OAUTH_STATE_TTL = 600  # 초
+
+
+def _prune_oauth_states():
+    now = time.time()
+    for st, (_, exp) in list(oauth_states.items()):
+        if exp < now:
+            oauth_states.pop(st, None)
+
 
 USE_PG = bool(DATABASE_URL and HAS_PG)
 
@@ -100,6 +118,76 @@ def hash_pin(pin):
     return hashlib.sha256(pin.encode()).hexdigest()
 
 
+def _ensure_social_columns(conn):
+    """기존 staff 테이블에 소셜 로그인 컬럼이 없으면 추가(마이그레이션)."""
+    cols = {'email': "TEXT DEFAULT ''", 'provider': "TEXT DEFAULT ''",
+            'provider_uid': "TEXT DEFAULT ''"}
+    if USE_PG:
+        cur = conn.cursor()
+        for name, decl in cols.items():
+            cur.execute(f"ALTER TABLE staff ADD COLUMN IF NOT EXISTS {name} {decl}")
+        conn.commit()
+    else:
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(staff)").fetchall()}
+        for name, decl in cols.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE staff ADD COLUMN {name} {decl}")
+        conn.commit()
+
+
+def _session_user(row):
+    """staff 행을 세션 사용자 dict로 변환."""
+    u = dict(row)
+    return {
+        'id': u['id'], 'name': u['name'], 'region': u.get('region', '') or '',
+        'role': u.get('role', 'staff') or 'staff',
+        'contact_name': u.get('contact_name', '') or '',
+    }
+
+
+def find_or_create_social_staff(profile):
+    """소셜 프로필을 staff 레코드와 연결하거나 새로 만든다.
+
+    매칭 우선순위: (provider, provider_uid) → email → 신규 생성.
+    반환: ``(session_user_dict, created)``.
+    """
+    provider = profile.get('provider', '')
+    uid = profile.get('provider_uid', '')
+    email = (profile.get('email', '') or '').lower()
+    name = profile.get('name', '') or '회원'
+
+    conn = get_db()
+    try:
+        row = db_fetchone(db_execute(
+            conn, "SELECT * FROM staff WHERE provider = ? AND provider_uid = ?",
+            (provider, uid)))
+        if row:
+            return _session_user(row), False
+
+        if email:
+            row = db_fetchone(db_execute(
+                conn, "SELECT * FROM staff WHERE email = ? AND email <> ''", (email,)))
+            if row:
+                db_execute(conn, "UPDATE staff SET provider = ?, provider_uid = ? WHERE id = ?",
+                           (provider, uid, dict(row)['id']))
+                db_commit(conn)
+                return _session_user(row), False
+
+        nid_row = db_fetchone(db_execute(
+            conn, "SELECT COALESCE(MAX(id), 0) + 1 AS nid FROM staff"))
+        next_id = dict(nid_row)['nid']
+        db_execute(
+            conn,
+            "INSERT INTO staff (id, name, region, role, pin_hash, contact_name, email, provider, provider_uid) "
+            "VALUES (?, ?, '', 'staff', '', '', ?, ?, ?)",
+            (next_id, name, email, provider, uid))
+        db_commit(conn)
+        return {'id': next_id, 'name': name, 'region': '', 'role': 'staff',
+                'contact_name': ''}, True
+    finally:
+        db_close(conn)
+
+
 def init_db():
     conn = get_db()
 
@@ -111,8 +199,11 @@ def init_db():
                 name TEXT NOT NULL,
                 region TEXT DEFAULT '',
                 role TEXT DEFAULT 'staff',
-                pin_hash TEXT NOT NULL,
-                contact_name TEXT DEFAULT ''
+                pin_hash TEXT NOT NULL DEFAULT '',
+                contact_name TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                provider TEXT DEFAULT '',
+                provider_uid TEXT DEFAULT ''
             );
         """)
         cur.execute("""
@@ -157,8 +248,11 @@ def init_db():
                 name TEXT NOT NULL,
                 region TEXT DEFAULT '',
                 role TEXT DEFAULT 'staff',
-                pin_hash TEXT NOT NULL,
-                contact_name TEXT DEFAULT ''
+                pin_hash TEXT NOT NULL DEFAULT '',
+                contact_name TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                provider TEXT DEFAULT '',
+                provider_uid TEXT DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,6 +285,9 @@ def init_db():
             );
         """)
         conn.commit()
+
+    # 기존 DB 마이그레이션 (소셜 로그인 컬럼)
+    _ensure_social_columns(conn)
 
     # Seed data if empty
     cur = db_execute(conn, 'SELECT COUNT(*) as cnt FROM staff')
@@ -300,6 +397,66 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return sessions.get(token)
         return None
 
+    # --- OAuth (소셜 로그인) ---
+    def _base_url(self):
+        """콜백 redirect_uri 베이스. 프록시(HTTPS) 뒤 배포를 고려."""
+        base = os.environ.get('OAUTH_REDIRECT_BASE', '').strip().rstrip('/')
+        if base:
+            return base
+        proto = self.headers.get('X-Forwarded-Proto', 'http')
+        host = self.headers.get('Host', 'localhost')
+        return f"{proto}://{host}"
+
+    def _redirect(self, location, status=302):
+        self.send_response(status)
+        self.send_header('Location', location)
+        self.end_headers()
+
+    def _handle_auth_providers(self):
+        self._send_json({'providers': [p.button() for p in enabled_providers()]})
+
+    def _handle_oauth_login(self, provider_key, query):
+        prov = get_provider(provider_key)
+        if not prov or not prov.configured:
+            self._send_json({'error': f"'{provider_key}' 로그인을 사용할 수 없습니다."}, 404)
+            return
+        _prune_oauth_states()
+        state = secrets.token_urlsafe(24)
+        oauth_states[state] = (provider_key, time.time() + OAUTH_STATE_TTL)
+        redirect_uri = f"{self._base_url()}/auth/callback/{provider_key}"
+        self._redirect(build_authorize_url(prov, redirect_uri, state))
+
+    def _handle_oauth_callback(self, provider_key, query):
+        prov = get_provider(provider_key)
+        if not prov or not prov.configured:
+            self._redirect('/#error=unavailable')
+            return
+        if query.get('error'):
+            self._redirect('/#error=denied')
+            return
+        state = (query.get('state') or [None])[0]
+        code = (query.get('code') or [None])[0]
+        _prune_oauth_states()
+        saved = oauth_states.pop(state, None) if state else None
+        if not saved or saved[0] != provider_key:
+            self._redirect('/#error=state')
+            return
+        if not code:
+            self._redirect('/#error=nocode')
+            return
+        redirect_uri = f"{self._base_url()}/auth/callback/{provider_key}"
+        try:
+            token = exchange_code_for_token(prov, code, redirect_uri, state=state)
+            profile = fetch_profile(prov, token)
+        except OAuthError as exc:
+            print(f"[oauth] {provider_key} 실패: {exc}")
+            self._redirect('/#error=oauth')
+            return
+        user, _created = find_or_create_social_staff(profile)
+        sess_token = secrets.token_hex(24)
+        sessions[sess_token] = user
+        self._redirect(f"/#token={sess_token}")
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -323,6 +480,12 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             self._handle_get_config()
         elif path == '/api/export':
             self._handle_export()
+        elif path == '/api/auth/providers':
+            self._handle_auth_providers()
+        elif path.startswith('/auth/login/'):
+            self._handle_oauth_login(path[len('/auth/login/'):], parse_qs(parsed.query))
+        elif path.startswith('/auth/callback/'):
+            self._handle_oauth_callback(path[len('/auth/callback/'):], parse_qs(parsed.query))
         else:
             super().do_GET()
 
@@ -370,16 +533,10 @@ class ChecklistHandler(SimpleHTTPRequestHandler):
             return
 
         token = secrets.token_hex(24)
-        contact_name = user.get('contact_name', '') or ''
-        sessions[token] = {
-            'id': user['id'], 'name': user['name'],
-            'region': user['region'], 'role': user['role'],
-            'contact_name': contact_name
-        }
-        self._send_json({
-            'token': token,
-            'user': {'id': user['id'], 'name': user['name'], 'region': user['region'], 'role': user['role'], 'contact_name': contact_name}
-        })
+        # sqlite3.Row / DictRow 모두에서 안전하도록 dict 변환 후 사용
+        session_user = _session_user(user)
+        sessions[token] = session_user
+        self._send_json({'token': token, 'user': session_user})
 
     def _handle_logout(self):
         auth = self.headers.get('Authorization', '')
