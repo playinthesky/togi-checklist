@@ -172,6 +172,18 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .empty-cta { text-align: center; color: var(--text-light); font-size: 0.88rem; line-height: 1.7; padding: 10px 0; }
+
+  /* Coach Q&A */
+  .chat-box { min-height: 240px; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; margin-bottom: 12px; }
+  .msg { max-width: 86%; padding: 11px 14px; border-radius: 16px; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; animation: fade .2s ease; }
+  .msg.bot { background: #e7f2ff; color: var(--text); align-self: flex-start; border-bottom-left-radius: 5px; }
+  .msg.me { background: linear-gradient(135deg, var(--pink) 0%, var(--lav) 100%); color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+  .chip { font-size: 0.78rem; padding: 7px 12px; border-radius: 999px; background: #fff; border: 1.5px solid var(--border); color: var(--text-light); cursor: pointer; transition: all .12s; }
+  .chip:active { background: var(--mint-soft); border-color: var(--mint); }
+  .chat-input { display: flex; gap: 8px; }
+  .chat-input input { flex: 1; padding: 12px 14px; font-size: 0.95rem; font-family: inherit; border: 2px solid var(--border); border-radius: 14px; background: #fffafc; color: var(--text); }
+  .chat-input input:focus { outline: none; border-color: var(--pink); }
 </style>
 </head>
 <body>
@@ -279,6 +291,20 @@
     </div>
   </div>
 
+  <!-- ===== TAB: 상담 (Coach Q&A) ===== -->
+  <div class="tab-page" id="tab-chat">
+    <div class="card">
+      <h2><span class="em">💬</span> 대사 상담소</h2>
+      <p class="hint">다이어트·대사·운동·식단 궁금한 걸 물어보세요. 자주 묻는 질문에 바로 답해드려요. (앱 안에서만 도는 간단 상담이라 인터넷 검색은 못 해요.)</p>
+      <div class="chat-box" id="chatBox"></div>
+      <div class="chips" id="chatChips"></div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="예: 정체기일 땐 어떻게 해?" autocomplete="off">
+        <button class="btn sm" id="chatSend" style="width:auto;">전송</button>
+      </div>
+    </div>
+  </div>
+
   <p class="disclaimer">
     ⚠️ 이 도구는 일반적인 건강 정보 제공용이며 의학적 진단·처방이 아니에요.
     기저질환이 있거나 큰 폭의 감량이 필요하면 의사·영양사와 상의하세요.
@@ -290,6 +316,7 @@
   <button class="on" data-tab="me"><span class="em">🧮</span>내 몸</button>
   <button data-tab="today"><span class="em">🔥</span>오늘</button>
   <button data-tab="log"><span class="em">⚖️</span>기록</button>
+  <button data-tab="chat"><span class="em">💬</span>상담</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -591,10 +618,135 @@ function renderChart() {
   });
 }
 
+/* ---------------- Coach Q&A (offline, rule-based) ---------------- */
+function profileTargets() {
+  const p = LS.get("profile", null);
+  if (!p || !p.weight || !p.height || !p.age) return null;
+  const bmr = Math.round(10*p.weight + 6.25*p.height - 5*p.age + (p.sex === "male" ? 5 : -161));
+  const tdee = Math.round(bmr * (parseFloat(p.activity) || 1.375));
+  const pace = parseFloat(p.pace) || 0.5;
+  let target = tdee - Math.round(pace*7700/7);
+  const floor = Math.max(p.sex === "male" ? 1500 : 1200, Math.round(bmr*0.95));
+  if (target < floor) target = floor;
+  return { bmr, tdee, target, prot: Math.round(p.weight*1.6), goal: p.goal, weight: p.weight, pace };
+}
+
+const KB = [
+  { keys:["안녕","하이","ㅎㅇ","반가","hello","hi"],
+    a:()=>"안녕하세요 병덕님! 💪 대사·다이어트·운동·식단 뭐든 편하게 물어보세요. 아래 추천 질문을 눌러도 돼요." },
+
+  { keys:["내칼로리","얼마나먹","몇칼로리","목표칼로리","하루칼로리","섭취량","얼마먹"],
+    a:()=>{ const t=profileTargets();
+      return t ? `병덕님 기준 하루 권장 섭취는 약 ${t.target}kcal예요.\n(기초대사 ${t.bmr} · 하루 소비 ${t.tdee})\n단백질은 하루 ${t.prot}g 챙기세요. 🍳`
+               : "먼저 '내 몸' 탭에서 정보를 넣고 '계산하기'를 누르면, 본인 맞춤 섭취량을 알려드릴게요."; } },
+
+  { keys:["내목표","몇키로","몇kg","목표체중","언제까지","얼마나빼"],
+    a:()=>{ const t=profileTargets();
+      if(!t) return "'내 몸' 탭에서 목표 체중을 입력하면 도달 예상 기간까지 알려드려요.";
+      if(t.goal && t.goal<t.weight){ const wk=Math.ceil((t.weight-t.goal)/t.pace);
+        return `현재 ${t.weight}kg → 목표 ${t.goal}kg, ${(t.weight-t.goal).toFixed(1)}kg 남았어요.\n주 ${t.pace}kg 속도면 약 ${wk}주 정도 걸려요. 천천히 꾸준히가 정답! 🌿`; }
+      return "목표 체중이 현재와 같거나 높아요. 유지/근육 모드라면 소비열량 근처로 드세요."; } },
+
+  { keys:["단백질","프로틴","protein"],
+    a:()=>"단백질은 다이어트 치트키예요 🍳\n① 소화에 칼로리를 많이 써요 ② 근육을 지켜 대사 유지 ③ 포만감 최고.\n끼니마다 손바닥 하나(닭가슴살·달걀·두부·생선)면 하루 목표 거의 채워요." },
+
+  { keys:["정체기","안빠","안빠져","멈췄","제자리","변화없"],
+    a:()=>"정체기는 자연스러운 거예요, 너무 조급해 마세요 🙂\n① 2주는 더 지켜보기(수분 변동일 수 있어요) ② 단백질·근력운동 강화 ③ 걷기·활동량 살짝 늘리기 ④ 잠·스트레스 점검.\n굶기로 대응하면 오히려 대사가 꺾여요." },
+
+  { keys:["야식","밤에","자기전","배고파밤"],
+    a:()=>"야식은 자기 3시간 전 마감이 좋아요 🌙\n정 배고프면 따뜻한 물·무가당 요거트·삶은 달걀처럼 가벼운 단백질로. 탄수·기름진 야식이 제일 살로 가요." },
+
+  { keys:["물","수분"],
+    a:()=>"물은 대사의 시작이에요 💧 하루 1.5~2L 목표.\n식전에 한 컵 마시면 과식도 줄어요. 갈증을 배고픔으로 착각하는 경우도 많아요." },
+
+  { keys:["술","맥주","소주","와인","음주"],
+    a:()=>"술은 다이어트의 큰 적이에요 🍺\n① 칼로리 높고(소주 1병 ≈ 400~500kcal) ② 마시면 지방 연소가 멈추고 안주까지.\n끊는 게 베스트, 마신다면 횟수·양 줄이고 안주는 단백질 위주로." },
+
+  { keys:["유산소","근력이나","뭐가나","유산소vs","걷기vs"],
+    a:()=>"둘 다 필요해요!\n🚶 유산소(걷기) = 오늘 쓴 칼로리↑\n🏋️ 근력운동 = 매일 쓰는 기본 칼로리(대사)를 지켜줘요.\n살 빠진 뒤에도 유지되는 몸은 근력운동이 만들어요. 58세엔 특히 근력이 중요!" },
+
+  { keys:["근력운동어떻","무슨운동","어떤운동","홈트","집에서운동","운동추천","운동방법","스쿼트"],
+    a:()=>"집에서 맨몸 주 2~3회, 15~20분이면 충분해요 💪\n🪑 의자 스쿼트(앉았다 일어나기)\n🧱 벽 푸시업\n🌉 누워서 엉덩이 들기(브릿지)\n🦵 앉아서 다리 들기\n각 10~15회 × 2~3세트. 무릎·허리 아프면 무리 말고 횟수부터 천천히." },
+
+  { keys:["요요","다시쪄","리바운드"],
+    a:()=>"요요는 보통 '굶어서 근육까지 빠진' 다음에 와요.\n근육이 줄면 대사가 낮아져서, 예전처럼 먹어도 더 쪄요.\n그래서 천천히(주 0.5kg) + 단백질 + 근력운동으로 근육 지키며 빼는 게 요요 예방이에요. 🌿" },
+
+  { keys:["탄수","밥","빵","면","탄수화물"],
+    a:()=>"탄수를 무조건 끊을 필욘 없어요. 양과 종류가 핵심!\n흰쌀·빵·면 → 잡곡·통곡물·고구마로 바꾸고, 양을 조금 줄이세요.\n단백질·채소 먼저 먹고 밥을 나중에 먹으면 혈당도 천천히 올라요." },
+
+  { keys:["잠","수면","잠못","불면"],
+    a:()=>"잠은 다이어트의 숨은 핵심이에요 😴\n7시간 못 자면 식욕 호르몬이 깨어나 다음날 더 먹게 돼요.\n규칙적인 취침·기상, 자기 전 휴대폰·야식 줄이기가 도움돼요." },
+
+  { keys:["굶","단식","공복","안먹"],
+    a:()=>"굶는 다이어트는 비추예요 🙅\n몸이 비상모드로 대사를 낮추고, 근육부터 빠져서 요요로 직행해요.\n적당히 먹으면서(병덕님은 약 1,650kcal) 단백질 챙기는 게 더 빨리, 안 돌아오게 빠지는 길이에요." },
+
+  { keys:["치팅","치팅데이","먹어도되","cheat"],
+    a:()=>"가끔의 치팅은 괜찮아요(스트레스·정체기 환기에 도움).\n단, 주 1회·한 끼 정도로 제한하고 다음 끼니부터 평소 루틴 복귀. '하루 종일 치팅'은 일주일 노력을 지워요 😅" },
+
+  { keys:["무릎","관절","아파","허리"],
+    a:()=>"관절이 아프면 충격 적은 운동으로! 🦵\n걷기·실내자전거·수영, 그리고 의자 스쿼트·브릿지 같은 맨몸 운동.\n통증이 지속되면 무리하지 말고 정형외과 상담을 권해요." },
+
+  { keys:["보충제","영양제","프로틴보충","단백질보충","쉐이크"],
+    a:()=>"식사로 단백질이 부족할 때 프로틴 보충제는 편리해요(1스쿱 ≈ 20g).\n다만 기본은 '진짜 음식'이에요. 영양제는 보조일 뿐, 식단·운동을 대신하진 못해요. 신장 질환이 있으면 의사와 상의하세요." },
+
+  { keys:["고마","감사","thanks","ㄱㅅ"],
+    a:()=>"천만에요 병덕님! 😊 무리하지 말고 꾸준히 가요. 응원할게요 💪" },
+];
+
+function addMsg(text, who) {
+  const box = $("chatBox");
+  const d = document.createElement("div");
+  d.className = "msg " + who;
+  d.textContent = text;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function coachAnswer(q) {
+  const s = q.toLowerCase().replace(/\s/g, "");
+  for (const item of KB) {
+    if (item.keys.some(k => s.includes(k.toLowerCase().replace(/\s/g, "")))) {
+      return typeof item.a === "function" ? item.a() : item.a;
+    }
+  }
+  return "음, 그건 제가 콕 집어 답하긴 어려워요 🙏\n대신 이런 걸 물어보세요: 단백질 / 정체기 / 야식 / 물 / 술 / 유산소vs근력 / 요요 / 수면 / 내 칼로리.\n(증상·약·질환 관련은 꼭 의사·약사와 상의하세요.)";
+}
+
+function sendChat() {
+  const inp = $("chatInput");
+  const q = inp.value.trim();
+  if (!q) return;
+  addMsg(q, "me");
+  inp.value = "";
+  setTimeout(() => addMsg(coachAnswer(q), "bot"), 280);
+}
+
+const CHIPS = ["단백질 왜 중요해?", "정체기 왔어", "야식 참는 법", "술 마셔도 돼?", "유산소 vs 근력", "내 칼로리 알려줘"];
+function buildChips() {
+  const c = $("chatChips");
+  c.innerHTML = "";
+  CHIPS.forEach(t => {
+    const b = document.createElement("div");
+    b.className = "chip";
+    b.textContent = t;
+    b.addEventListener("click", () => { $("chatInput").value = t; sendChat(); });
+    c.appendChild(b);
+  });
+}
+
+function initChat() {
+  buildChips();
+  addMsg("안녕하세요 병덕님! 💪 대사·다이어트 궁금한 걸 편하게 물어보세요. 아래 추천 질문을 눌러도 되고, 직접 입력해도 돼요.", "bot");
+}
+
+$("chatSend").addEventListener("click", sendChat);
+$("chatInput").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+
 /* ---------------- Init ---------------- */
 loadProfile();
 buildHabits();
 renderChart();
+initChat();
 </script>
 </body>
 </html>
