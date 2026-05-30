@@ -137,6 +137,22 @@
       margin-top: 10px;
       min-height: 20px;
     }
+    .social-login { margin-top: 18px; }
+    .social-divider {
+      text-align: center; color: var(--text-light); font-size: 0.78rem;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .social-divider::before, .social-divider::after {
+      content: ""; flex: 1; height: 1px; background: #e5e7eb;
+    }
+    .social-buttons { display: flex; flex-direction: column; gap: 8px; }
+    .social-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 11px; border-radius: 8px; font-size: 0.9rem;
+      font-weight: 700; cursor: pointer; text-decoration: none;
+      border: 1.5px solid transparent;
+    }
+    .social-btn:hover { opacity: 0.92; }
     .back-link {
       display: block;
       text-align: center;
@@ -553,6 +569,10 @@
       <!-- Step 1: Select region -->
       <div id="step1">
         <div class="region-grid" id="regionGrid"></div>
+        <div id="socialLogin" class="social-login" style="display:none;">
+          <div class="social-divider">또는 소셜 계정으로</div>
+          <div id="socialButtons" class="social-buttons"></div>
+        </div>
       </div>
 
       <!-- Step 2: Enter PIN -->
@@ -609,6 +629,7 @@
     let pinBuffer = '';
     let staffList = [];
     let autoRefreshTimer = null;
+    let pendingSocialError = null;
 
     function api(path, opts = {}) {
       const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
@@ -616,8 +637,55 @@
       return fetch(path, { ...opts, headers });
     }
 
+    // 소셜 로그인 버튼 렌더링
+    async function renderSocialButtons() {
+      try {
+        const res = await fetch('/api/auth/providers');
+        const data = await res.json();
+        const providers = data.providers || [];
+        if (!providers.length) return;
+        const wrap = document.getElementById('socialButtons');
+        wrap.innerHTML = '';
+        providers.forEach(p => {
+          const a = document.createElement('a');
+          a.className = 'social-btn';
+          a.href = '/auth/login/' + p.key;
+          a.style.background = p.color;
+          a.style.color = p.text_color;
+          a.style.borderColor = p.border;
+          a.textContent = p.label + '로 로그인';
+          wrap.appendChild(a);
+        });
+        document.getElementById('socialLogin').style.display = 'block';
+      } catch (e) { /* 제공자 미설정 시 무시 */ }
+    }
+
+    // 소셜 로그인 콜백(#token / #error) 처리
+    async function consumeAuthHash() {
+      if (!location.hash) return;
+      const params = new URLSearchParams(location.hash.slice(1));
+      const hashToken = params.get('token');
+      const hashError = params.get('error');
+      history.replaceState(null, '', location.pathname + location.search);
+      if (hashToken) {
+        authToken = hashToken;
+        sessionStorage.setItem('checklist_token', authToken);
+        const meRes = await api('/api/me');
+        if (meRes.ok) {
+          currentUser = await meRes.json();
+        } else {
+          sessionStorage.removeItem('checklist_token');
+          authToken = null;
+        }
+      } else if (hashError) {
+        pendingSocialError = hashError;
+      }
+    }
+
     // --- Init ---
     async function init() {
+      await consumeAuthHash();
+
       const res = await fetch('/api/staff/list');
       staffList = await res.json();
 
@@ -644,6 +712,18 @@
         btn.onclick = () => selectStaff(s);
         grid.appendChild(btn);
       });
+
+      await renderSocialButtons();
+      if (pendingSocialError) {
+        document.getElementById('loginError').textContent =
+          '소셜 로그인에 실패했습니다. 다시 시도해주세요.';
+      }
+
+      // 소셜 콜백으로 이미 로그인된 경우
+      if (currentUser) {
+        showApp();
+        return;
+      }
 
       // Restore session
       const saved = sessionStorage.getItem('checklist_token');
