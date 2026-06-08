@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>INsights from INside | YBM연수원</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: avoid; }
+}
+
+body {
+  background: #f0f0f0;
+  color: #333;
+  line-height: 1.6;
+}
+
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 20px auto;
+  background: white;
+  padding: 25mm;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+/* Cover Page */
+.cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 247mm;
+}
+
+.cover .logo {
+  font-size: 14px;
+  color: #666;
+  letter-spacing: 3px;
+  margin-bottom: 60px;
+}
+
+.cover h1 {
+  font-size: 42px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+}
+
+.cover .subtitle {
+  font-size: 18px;
+  color: #666;
+  font-weight: 300;
+  margin-bottom: 80px;
+}
+
+.cover .client {
+  font-size: 28px;
+  font-weight: 500;
+  color: #2c5aa0;
+  margin-bottom: 100px;
+}
+
+.cover .info {
+  font-size: 14px;
+  color: #888;
+  line-height: 2;
+}
+
+/* Content Pages */
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  border-left: 4px solid #2c5aa0;
+  padding-left: 15px;
+  margin-bottom: 25px;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 25px 0 15px 0;
+}
+
+p {
+  font-size: 13px;
+  margin-bottom: 15px;
+  text-align: justify;
+}
+
+blockquote {
+  font-size: 16px;
+  font-style: italic;
+  color: #2c5aa0;
+  border-left: 3px solid #2c5aa0;
+  padding: 10px 20px;
+  margin: 20px 0;
+  background: #f8fafc;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  font-size: 12px;
+}
+
+th {
+  background: #2c5aa0;
+  color: white;
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: 500;
+}
+
+td {
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+}
+
+tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+.two-col {
+  display: flex;
+  gap: 30px;
+}
+
+.two-col > div {
+  flex: 1;
+}
+
+ul {
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+li {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.highlight-box {
+  background: linear-gradient(135deg, #2c5aa0 0%, #1e3d6f 100%);
+  color: white;
+  padding: 25px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.highlight-box h4 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 10px;
+  opacity: 0.9;
+}
+
+.highlight-box p {
+  font-size: 15px;
+  margin: 0;
+  text-align: left;
+}
+
+.process-flow {
+  display: flex;
+  justify-content: space-between;
+  margin: 30px 0;
+}
+
+.process-step {
+  flex: 1;
+  text-align: center;
+  padding: 20px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin: 0 5px;
+}
+
+.process-step .phase {
+  font-size: 11px;
+  color: #2c5aa0;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.process-step .title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+}
+
+.process-step ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.process-step li {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 3px;
+}
+
+.arrow {
+  display: flex;
+  align-items: center;
+  color: #2c5aa0;
+  font-size: 24px;
+}
+
+.price-box {
+  background: #1a1a1a;
+  color: white;
+  padding: 20px 30px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.price-box .label {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.price-box .amount {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.facilitator {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  margin: 20px 0;
+}
+
+.facilitator .photo {
+  width: 120px;
+  height: 120px;
+  background: #eee;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 12px;
+}
+
+.facilitator .info {
+  flex: 1;
+}
+
+.facilitator .name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.facilitator .title {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.tag {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #2c5aa0;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  margin-right: 5px;
+  margin-bottom: 5px;
+}
+
+.footer {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+}
+
+.contact-box {
+  background: #f8fafc;
+  padding: 25px;
+  border-radius: 8px;
+  text-align: center;
+  margin-top: 30px;
+}
+
+.contact-box .org {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.contact-box .details {
+  font-size: 13px;
+  color: #666;
+}
+</style>
+</head>
+<body>
+
+<!-- Page 1: Cover -->
+<div class="page cover">
+  <div class="logo">fKF 한국퍼실리테이터연합회 · 코리아스픽스</div>
+  <h1>INsights from INside</h1>
+  <div class="subtitle">조직 내면 진단 프로그램</div>
+  <div class="client">YBM연수원</div>
+  <div class="info">
+    2026. 6.<br>
+    fKF 한국퍼실리테이터연합회<br>
+    코리아스픽스
+  </div>
+</div>
+
+<!-- Page 2: Overview -->
+<div class="page">
+  <h2>1. Program Overview</h2>
+
+  <blockquote>"The answers are already INside."</blockquote>
+
+  <p>INsights from INside는 조직 내부 구성원의 인사이트(INsights)를 통해 문제를 진단하고 해결방안을 도출하는 <strong>Self-Consulting Program</strong>입니다.</p>
+
+  <table>
+    <tr><th style="width:30%">Framework</th><td>McKinsey OHI 기반 조직건강 진단</td></tr>
+    <tr><th>Method</th><td>퍼실리테이션 기반 자기 진단</td></tr>
+    <tr><th>Philosophy</th><td>해답은 이미 내부에 있다</td></tr>
+  </table>
+
+  <h3>Why INsights from INside</h3>
+
+  <table>
+    <tr><th>기존 접근</th><th>한계</th></tr>
+    <tr><td>리더십 교육</td><td>일방향 전달, 현장 적용 어려움</td></tr>
+    <tr><td>팀빌딩 워크숍</td><td>일회성 이벤트, 지속성 부재</td></tr>
+    <tr><td>외부 컨설팅</td><td>현장 맥락 부재, 수용성 낮음</td></tr>
+    <tr><td>설문조사</td><td>정량 데이터만, 맥락 파악 어려움</td></tr>
+  </table>
+
+  <div class="highlight-box">
+    <h4>INsights from INside는 다릅니다</h4>
+    <p>정량(설문) + 정성(면담) 병행 · 구성원이 직접 원인을 규명하고 방안을 도출 · 중립적 퍼실리테이션으로 솔직한 대화 유도 · 합의된 지표와 실행과제 도출</p>
+  </div>
+</div>
+
+<!-- Page 3: Diagnostic Frame -->
+<div class="page">
+  <h2>2. Diagnostic Frame</h2>
+
+  <h3>McKinsey OHI 기반 5대 영역</h3>
+
+  <table>
+    <tr><th>영역</th><th>Focus</th><th>진단 포인트</th></tr>
+    <tr><td><strong>Direction</strong></td><td>방향성</td><td>조직 목표 공유 수준</td></tr>
+    <tr><td><strong>Leadership</strong></td><td>리더십</td><td>리더-구성원 간 신뢰</td></tr>
+    <tr><td><strong>Climate</strong></td><td>조직 분위기</td><td>심리적 안전감</td></tr>
+    <tr><td><strong>Accountability</strong></td><td>책임성</td><td>역할 경계와 위임</td></tr>
+    <tr><td><strong>Motivation</strong></td><td>동기부여</td><td>성장 기회 인식</td></tr>
+  </table>
+
+  <h2 style="margin-top:40px;">3. Program Structure</h2>
+
+  <h3>Process Flow</h3>
+
+  <div class="process-flow">
+    <div class="process-step">
+      <div class="phase">Phase 1</div>
+      <div class="title">진단</div>
+      <ul>
+        <li>문서 분석</li>
+        <li>설문 (OHI)</li>
+        <li>면담 3타임</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="process-step">
+      <div class="phase">Phase 2</div>
+      <div class="title">해석</div>
+      <ul>
+        <li>원인 파악 워크숍</li>
+        <li>해결방안 워크숍</li>
+        <li>강사 수렴</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="process-step">
+      <div class="phase">Phase 3</div>
+      <div class="title">정착</div>
+      <ul>
+        <li>지표 공개 보고회</li>
+        <li>외부 강사 특강</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>상세 일정</h3>
+
+  <table>
+    <tr><th>Phase</th><th>활동</th><th>내용</th></tr>
+    <tr><td>사전</td><td>문서 분석 / 설문 배포</td><td>기존 내부 조사 자료 검토, 무기명 OHI 설문</td></tr>
+    <tr><td>Day 1</td><td>면담</td><td>구성원 8명 (3타임) + 상무 별도</td></tr>
+    <tr><td>Day 2</td><td>원인 파악 워크숍</td><td>4명 × 2회 (각 2h)</td></tr>
+    <tr><td>Day 3</td><td>해결방안 워크숍</td><td>전원 또는 4명 × 2회, 희망 강사 수렴</td></tr>
+    <tr><td>Day 4</td><td>지표 공개 보고회</td><td>종합 결과 발표</td></tr>
+    <tr><td>Day 5</td><td>외부 강사 특강</td><td>구성원 선택 강사 (별도)</td></tr>
+  </table>
+</div>
+
+<!-- Page 4: Methodology -->
+<div class="page">
+  <h2>4. Methodology</h2>
+
+  <h3>적용 기법</h3>
+
+  <table>
+    <tr><th>기법</th><th>활용 단계</th><th>목적</th></tr>
+    <tr><td><strong>Framed 3Why</strong></td><td>원인 파악</td><td>표면적 → 잠재적 → 근본적 원인 계층화</td></tr>
+    <tr><td><strong>Customized Fishbone</strong></td><td>원인 파악</td><td>원인 구조화 및 시각화</td></tr>
+    <tr><td><strong>Customized Brainwriting</strong></td><td>전 과정</td><td>익명 의견 수렴, 의견 쏠림 방지</td></tr>
+    <tr><td><strong>Customized Matrix</strong></td><td>해결방안</td><td>심각성 × 선호도 우선순위화</td></tr>
+  </table>
+
+  <div class="highlight-box" style="margin-top:30px;">
+    <h4>Framed 3Why</h4>
+    <p>문제를 해결하고자 하는 범위 내에서 원인을 계층화합니다.<br><br>
+    <strong>[표면적 원인]</strong> 현상 수준 → <strong>[잠재적 원인]</strong> 구조 수준 → <strong>[근본적 원인]</strong> 문화 수준</p>
+  </div>
+
+  <h2 style="margin-top:40px;">5. Deliverables</h2>
+
+  <table>
+    <tr><th>산출물</th><th>내용</th></tr>
+    <tr><td>조직건강 진단 리포트</td><td>설문 + 면담 종합 분석</td></tr>
+    <tr><td>워크숍 결과 종합</td><td>도출 과제 + 해결방안</td></tr>
+    <tr><td>조직건강 지표</td><td>OHI 기반 현재/목표 점수</td></tr>
+    <tr><td>실행 권고안</td><td>우선순위별 액션플랜</td></tr>
+    <tr><td>자료집</td><td>워크숍 진행 자료 (10부)</td></tr>
+  </table>
+
+  <h3>지표 예시</h3>
+
+  <table>
+    <tr><th>영역</th><th>현재</th><th>목표</th><th>핵심 과제</th></tr>
+    <tr><td>리더십 신뢰</td><td>2.8</td><td>4.0</td><td>-</td></tr>
+    <tr><td>소통</td><td>2.5</td><td>4.0</td><td>-</td></tr>
+    <tr><td>역할 명확성</td><td>3.2</td><td>4.0</td><td>-</td></tr>
+    <tr><td>심리적 안전</td><td>2.3</td><td>4.0</td><td>-</td></tr>
+  </table>
+</div>
+
+<!-- Page 5: Pricing & Facilitator -->
+<div class="page">
+  <h2>6. 견적</h2>
+
+  <h3>포함 사항</h3>
+
+  <table>
+    <tr><th>항목</th><th style="text-align:right">금액</th></tr>
+    <tr><td>문서 분석</td><td style="text-align:right">300,000</td></tr>
+    <tr><td>설문 설계/분석</td><td style="text-align:right">300,000</td></tr>
+    <tr><td>면담 (1일)</td><td style="text-align:right">500,000</td></tr>
+    <tr><td>워크숍 (2일)</td><td style="text-align:right">1,000,000</td></tr>
+    <tr><td>보고회</td><td style="text-align:right">300,000</td></tr>
+    <tr><td>자료집 (10부)</td><td style="text-align:right">300,000</td></tr>
+    <tr><td>결과 보고서</td><td style="text-align:right">500,000</td></tr>
+    <tr><td>기획/설계</td><td style="text-align:right">800,000</td></tr>
+  </table>
+
+  <div class="price-box">
+    <div class="label">합계 (VAT 별도)</div>
+    <div class="amount">4,000,000원</div>
+  </div>
+
+  <h3>불포함 사항</h3>
+
+  <table>
+    <tr><th>항목</th><th>비고</th></tr>
+    <tr><td>리더십 강사료</td><td>구성원 선택 강사 초빙 시 실비</td></tr>
+    <tr><td>워크숍 상품권</td><td>참가자 사례비</td></tr>
+    <tr><td>다과/음료</td><td>워크숍 운영비</td></tr>
+  </table>
+
+  <h2 style="margin-top:40px;">7. Facilitator</h2>
+
+  <div class="facilitator">
+    <div class="photo">PHOTO</div>
+    <div class="info">
+      <div class="name">이병덕</div>
+      <div class="title">fKF 한국퍼실리테이터연합회 이사장 · 코리아스픽스 대표이사</div>
+      <div>
+        <span class="tag">조직진단</span>
+        <span class="tag">숙의형 프로젝트</span>
+        <span class="tag">공론화</span>
+      </div>
+      <p style="margin-top:15px; font-size:12px; color:#666;">
+        <strong>수행실적</strong> 국제보건의료재단(2023), 한국상하수도협회(2022-23), 교육시설안전원(2023), 금천구청, SH공사, 광명시 등<br><br>
+        <strong>저서</strong> 퍼실리테이터워크북 시리즈, 기업가정신 학교에 가다, 한국인의 생각(1,2권), 토론의 기술
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Page 6: About Us & Contact -->
+<div class="page">
+  <h2>8. About Us</h2>
+
+  <div class="two-col">
+    <div>
+      <h3>fKF 한국퍼실리테이터연합회</h3>
+      <table>
+        <tr><th>설립</th><td>2008년</td></tr>
+        <tr><th>전문</th><td>퍼실리테이션, 숙의민주주의, 조직개발</td></tr>
+        <tr><th>네트워크</th><td>코리아스픽스, 전국 지회</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>코리아스픽스</h3>
+      <table>
+        <tr><th>설립</th><td>2015년</td></tr>
+        <tr><th>전문</th><td>공론화, 원탁회의, 시민참여</td></tr>
+        <tr><th>실적</th><td>동덕여대 공론화, 외교부 국민참여 등</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="contact-box">
+    <div class="org">fKF 한국퍼실리테이터연합회 · 코리아스픽스</div>
+    <div class="details">
+      Tel: 02-814-7773 · Email: playinthesky@kspeaks.kr
+    </div>
+  </div>
+
+  <div class="footer">
+    2026. 6. · INsights from INside | YBM연수원
+  </div>
+</div>
+
+</body>
+</html>
