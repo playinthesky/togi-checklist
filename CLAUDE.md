@@ -10,7 +10,8 @@
 - **숙의컨설팅 마스터**: `methodology/숙의공론컨설팅_AI시스템_마스터_v0.1.md` · SOC `methodology/SOC_숙의공론컨설팅_표준업무_정의서_v0.5.1.1.md`
 - **용어 사전**: `knowledge/용어사전_v0.2.md` (새 용어 즉시 등재) · **지식 색인** `methodology/지식_카탈로그_색인_v0.1.md` (재질문 전 검색)
 - **검증 규칙**: `methodology/AI팀_오류최소화_검증프로토콜_v0.1.md` — **검증 전 단정 금지, 링크 fetch 확인 후, 교차검증.**
-- **DX/AX 통합 SSOT**: `docs/DX_업무_전수정리_v0.2.0.md` · 로드맵 `docs/DX_로드맵_v0.1.md` — 36개 영역 매트릭스 + 단기·중기·장기.
+- **DX/AX 통합 SSOT**: `docs/DX_업무_전수정리_v0.2.0.md` · 로드맵 `docs/DX_로드맵_v0.2.md` — 36개 영역 매트릭스 + 단기·중기·장기.
+- **KDLB**(Korea Deliberative Leadership Brain — 숙의공론컨설팅 지능) `methodology/KDB_숙의공론컨설팅지능_정의서_v0.2.md` · **AX 좌표진단**(외부 클라이언트 5축 진단) `methodology/AX_좌표진단_프레임_v0.1.md` + 기계읽기 `methodology/ax_framework.yaml`
 
 ---
 
